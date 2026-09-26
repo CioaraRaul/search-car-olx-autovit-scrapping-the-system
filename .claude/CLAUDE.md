@@ -15,6 +15,9 @@ Scrapes used-car listings from Autovit and OLX twice a day, filters them by user
 3. **Best practices.** Follow framework conventions (Laravel structure, migrations, config files, `.env` for secrets, typed code, small focused classes). Never commit secrets.
 4. **Explain everything.** The user wants to learn: explain what each piece does and why, and define technical terms the first time they appear.
 5. **Learn from mistakes.** Read `.claude/lessons.md` before starting work. When something fails or the user corrects you, add a lesson there (what happened → the lesson → how to apply it).
+6. **Check best practices.** Read `.claude/best-practices.md` before writing code. It's a living doc — append newly confirmed Laravel/PHP conventions there (via Context7) rather than relying on memory.
+7. **Test everything.** Every code change needs a passing test (`php artisan test`) before it's reported as done.
+8. **Never let `.env` reach git.** Before any commit or push, confirm `.env` isn't staged (`git status`). A tracked pre-commit hook (`.githooks/pre-commit`, wired via `git config core.hooksPath .githooks`) blocks it automatically — don't bypass it with `--no-verify` without a specific reason from the user.
 
 ## Environment notes
 - Windows 11. PHP 8.5 (Herd), Composer 2.9, Node 24 — PHP is on the PowerShell PATH, not the Git Bash PATH.
