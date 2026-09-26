@@ -26,3 +26,8 @@ Format: **What happened** → **Lesson** → **How to apply**.
 
 ### Python prints fail on Romanian characters (2026-09-26)
 - **Lesson:** Set `PYTHONIOENCODING=utf-8` when printing scraped text on Windows.
+
+### Fresh Laravel install on Herd (Windows) ships a broken APP_URL (2026-09-26)
+- **What happened:** Right after `laravel new`, any `artisan` command (`package:discover`, later probably anything booting the framework) failed with `Invalid URI: Host is malformed` from `Request.php`.
+- **Lesson:** The generated `.env`'s `APP_URL` was `http://localhost:8000:8000` — a duplicated port, not a header/proxy/network issue. Herd's Windows installer environment appears to inject a port that Laravel's own `.env.example` template then appends to again.
+- **How to apply:** After every `laravel new` on this machine, check `.env`'s `APP_URL` before running any `artisan` command. Fix to a single port (`http://localhost:8000`) if doubled.
