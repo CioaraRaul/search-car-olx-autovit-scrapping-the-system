@@ -24,30 +24,23 @@ Laravel not Node, no frontend yet).
 
 ---
 
-## Chapter 1 — Autovit scraper
-**Status:** planned and ready — `.claude/plans/2026-09-28-autovit-scraper.md`, awaiting go-ahead.
-**Depends on:** `listings` + `search_criteria` schema (done).
-**Builds:** `scrape:autovit` — parses Autovit's `__NEXT_DATA__` JSON, applies your saved criteria
-as live search filters, upserts into `listings`. Also builds `RobotsTxtGuard`, a general-purpose
-`robots.txt` compliance checker (not Autovit-specific) that Chapter 2 reuses.
-
 ## Chapter 2 — OLX scraper
 **Status:** not planned yet, but the approach is decided. OLX renders listings as real HTML
 (`data-testid="l-card"` elements, confirmed live — no `__NEXT_DATA__`/JSON blob like Autovit), so
 this uses `symfony/dom-crawler` + `symfony/css-selector` (added via Composer) instead of JSON
-parsing. Reuses `App\Services\Scraping\RobotsTxtGuard` (built in Chapter 1, general-purpose —
-`RobotsTxtGuard::for('https://www.olx.ro')->isAllowed($url)`) rather than rebuilding robots.txt
-parsing — this is the one place this chapter genuinely benefits from Chapter 1 having landed
-first; if OLX is built before Autovit for some reason, build `RobotsTxtGuard` here instead, it's a
-small, self-contained piece either chapter can own. OLX's own `robots.txt` was already checked
-(Chapter 1's research) and has no restriction matching this chapter's planned query params.
+parsing. Reuses `App\Services\Scraping\RobotsTxtGuard` — already built and merged as part of the
+Autovit scraper, general-purpose — `RobotsTxtGuard::for('https://www.olx.ro')->isAllowed($url)` —
+rather than rebuilding robots.txt parsing. OLX's own `robots.txt` was already checked (during the
+Autovit scraper's research) and has no restriction matching this chapter's planned query params.
 Confirmed live query parameters (user-supplied, verified working):
 `https://www.olx.ro/auto-masini-moto-ambarcatiuni/autoturisme/?currency=EUR&search[filter_float_price:to]=7000&search[filter_float_year:from]=2013&search[filter_float_rulaj_pana:to]=230000&search[filter_enum_car_body][0]=sedan&search[filter_enum_car_body][1]=estate-car&search[filter_float_enginesize:to]=2000`
 — note OLX's field names differ from Autovit's (`filter_float_rulaj_pana` not `filter_float_mileage`,
 `filter_enum_car_body` not `filter_enum_body_type`, values `sedan`/`estate-car` not `sedan`/`combi`),
 and OLX has a genuine top-level `currency=EUR` parameter, unlike Autovit. Decided defaults:
-reuse `config/scraping.php` from Chapter 1 (same User-Agent/delay/page-cap pattern), same
-`updateOrCreate` upsert approach into `listings`. TLS: re-verify the 1.2-pinning requirement from
+reuse `config/scraping.php` (already built, same User-Agent/delay/page-cap pattern), same
+`updateOrCreate` upsert approach into `listings`, and the same currency-comparability rule the
+Autovit scraper uses (only price-filter a listing when its currency matches the `price_currency`
+criterion — real cross-currency conversion is Chapter 3's job). TLS: re-verify the 1.2-pinning requirement from
 PHP/`Http` specifically (not assumed from the PowerShell/curl findings in `lessons.md`) — if
 still needed, use `Http::withOptions(['curl' => [CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2]])`.
 Exact CSS selectors for price/title/year/km/etc. inside each `l-card` still need discovering from

@@ -17,10 +17,20 @@ Format: **What happened** → **Lesson** → **How to apply**.
 
 ## Testing
 
+### A second `Http::fake()` call doesn't override an already-hit URL pattern (2026-09-28)
+- **What happened:** A test that ran a command twice (to check "second run updates instead of duplicating") called `Http::fake([...])` again between the two runs, with a changed fixture body for the same URL pattern. The second run still got the *first* fixture's data — confirmed via a throwaway debug test (`dump()`'d both bodies: `first`/`first`, not `first`/`second`).
+- **Lesson:** Once a URL pattern has actually been matched by a fake, registering a new `Http::fake()` for that same pattern later in the same test doesn't take effect for that URL — the original response sticks.
+- **How to apply:** To test multiple sequential calls to the same URL returning different bodies, register `Http::sequence()->push($body1)->push($body2)` once, upfront, for that URL pattern — don't call `Http::fake()` again mid-test expecting it to override.
+
 ### `laravel new --pest` didn't scaffold `tests/Pest.php` (2026-09-28)
 - **What happened:** New Pest functional tests (`test('...', fn () => ...)`) failed with `Call to undefined method Tests\Feature\...::artisan()` and `Target class [config] does not exist` — the Laravel app was never being booted for them.
 - **Lesson:** `tests/Pest.php` (the file that runs `uses(Tests\TestCase::class)->in('Feature')` to bind functional tests to Laravel's TestCase) never got created by the installer, even with `--pest`. The two example tests it did generate are PHPUnit-class-style, which don't need that binding — so the gap wasn't obvious until the first functional-style test file was added.
 - **How to apply:** After scaffolding a fresh Laravel+Pest app, check `tests/Pest.php` exists before writing any `test()`/`it()`-style test. If missing, create it with `uses(Tests\TestCase::class)->in('Feature');`.
+
+### `tests/Pest.php` also needs to cover `Unit`, not just `Feature` (2026-09-28)
+- **What happened:** A functional-style test in `tests/Unit/` (`RobotsTxtGuardTest.php`) failed with `A facade root has not been set` — it used `Cache`/`Http` facades, which need the app booted, but `tests/Pest.php` only bound `Tests\TestCase` to `Feature`.
+- **Lesson:** "Unit" is a directory name, not a guarantee the test has no framework dependency. Any functional Pest test that touches a facade, `config()`, or the container needs the same TestCase binding as a Feature test.
+- **How to apply:** Bind both: `uses(Tests\TestCase::class)->in('Feature', 'Unit');`. Existing plain PHPUnit-class-style tests (like the installer's `Unit/ExampleTest.php`) are unaffected since they declare their own base class explicitly.
 
 ## Tooling (Windows)
 

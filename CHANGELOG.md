@@ -6,6 +6,19 @@ progress in a way that's readable without digging through `git log`.
 
 ## 2026-09-28
 
+### Added
+- **Chapter 1 complete: `scrape:autovit`.** Fetches Autovit search results (respecting
+  `robots.txt` via `RobotsTxtGuard`), maps them into `listings` via `AutovitListingMapper`, and
+  upserts via `Listing::updateOrCreate` — verified against the real live site: first run stored 3
+  new listings, second run updated those same 3 with 0 duplicates. Price filtering only applies
+  when a listing's currency matches the `price_currency` criterion (EUR) — a listing priced in RON
+  is stored without a price judgement rather than being wrongly compared as if the numbers were
+  the same unit; real currency normalization is Chapter 3's job, not built yet.
+- `AutovitListingMapper` unit-tested against a real captured listing node.
+- `ScrapeAutovitCommandTest` verifies: correct store/filter behavior across currencies, no
+  duplicates + correct price updates on a second run, and that the actual request URL never
+  contains `_price` or `[order]=` (the disallowed `robots.txt` patterns).
+
 ### Changed
 - Autovit plan: the `robots.txt` fix is now a general, reusable `RobotsTxtGuard` service (fetches,
   caches, and parses any site's `robots.txt`, checked at runtime before every request) instead of
