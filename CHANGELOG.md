@@ -16,6 +16,16 @@ progress in a way that's readable without digging through `git log`.
   `engine_capacity_max=2.0` (liters), `body_type=sedan,break`.
 - `tests/Pest.php` — required for Pest's functional `test()`/`it()` syntax to actually boot the
   Laravel app; the installer's `--pest` scaffold didn't create it (see `.claude/lessons.md`).
+- `CHANGELOG.md` and the standing rule to keep it updated with every change (`CLAUDE.md` rule 9).
+- Researched and wrote the Autovit scraper plan (`.claude/plans/2026-09-28-autovit-scraper.md`),
+  verified live against the real site: no currency filter exists on Autovit (price is per-seller,
+  not a toggle), confirmed working filter fields for price/year/mileage/engine size/body type,
+  confirmed newest-first sorting, confirmed `body_type`/`transmission` aren't returned in search
+  results (a real data limitation, not an oversight).
+- `ROADMAP.md` — a chaptered breakdown of all remaining work (OLX scraper, price history,
+  ingestion logging, the car-knowledge reliability filter, seller-rating check, Gmail digest,
+  scheduler wiring, resilience/kill-switches), each chapter written to be independently
+  buildable without depending on the others being done first.
 
 ### Fixed
 - Functional Pest tests were silently not booting the app (missing `tests/Pest.php`).
