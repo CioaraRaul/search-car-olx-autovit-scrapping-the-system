@@ -7,6 +7,11 @@ progress in a way that's readable without digging through `git log`.
 ## 2026-09-28
 
 ### Changed
+- Autovit plan: the `robots.txt` fix is now a general, reusable `RobotsTxtGuard` service (fetches,
+  caches, and parses any site's `robots.txt`, checked at runtime before every request) instead of
+  a one-time manual check baked into the URL-building logic. Both the Autovit scraper (Chapter 1,
+  builds it) and the future OLX scraper (Chapter 2, reuses it) call the same method — one shared
+  implementation, called once per site with that site's own base URL.
 - Scraping frequency: twice a day → **once a day at 07:00** (morning). Each run now needs to be
   thorough (higher page-coverage defaults) since there's no second run to catch what the first
   missed. Updated in `CLAUDE.md`, `ROADMAP.md` Chapter 8, and the Autovit scraper plan.
