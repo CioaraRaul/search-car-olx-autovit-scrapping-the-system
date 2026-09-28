@@ -24,6 +24,7 @@ Scrapes used-car listings from Autovit and OLX twice a day, filters them by user
    - Do the work, test it (rule 7).
    - Commit with a specific, descriptive message — what changed and why, not "update" or "fix stuff".
    - Merge the branch into `development` with `git merge --no-ff` (keeps a visible merge commit per task in history) and delete the branch afterward.
+   - Switch to `development` (should already be the current branch after the merge) and `git push origin development` — every finished task ends with `development` pushed to GitHub, not left local-only.
    - `main` only moves when the user explicitly says it's time to release — merge `development` into `main` then, never as a side effect of finishing a task.
 
 ## Environment notes
