@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Listing;
 use App\Models\SearchCriterion;
+use App\Services\Reliability\ReliabilityScorer;
 use App\Services\Scraping\AutovitClient;
 use App\Services\Scraping\AutovitListingMapper;
 use Illuminate\Console\Attributes\Description;
@@ -14,16 +15,18 @@ use Illuminate\Console\Command;
 #[Description('Scrape Autovit for cars matching the saved search criteria and store them in listings.')]
 class ScrapeAutovit extends Command
 {
-    public function handle(AutovitClient $client, AutovitListingMapper $mapper): int
+    public function handle(AutovitClient $client, AutovitListingMapper $mapper, ReliabilityScorer $scorer): int
     {
         $criteria = SearchCriterion::query()->pluck('value', 'key')->all();
         $priceMax = isset($criteria['price_max']) ? (int) $criteria['price_max'] : null;
         $priceCurrency = $criteria['price_currency'] ?? null;
         $maxPages = (int) ($this->option('pages') ?? config('scraping.autovit.max_pages'));
+        $rejectBelowScore = (int) config('car_knowledge.reject_below_score');
 
         $created = 0;
         $updated = 0;
         $filteredByPrice = 0;
+        $rejectedByReliability = 0;
 
         for ($page = 1; $page <= $maxPages; $page++) {
             $result = $client->fetchPage($criteria, $page);
@@ -43,6 +46,18 @@ class ScrapeAutovit extends Command
                     continue;
                 }
 
+                $reliability = $scorer->score($attributes);
+
+                if ($reliability->score < $rejectBelowScore) {
+                    $rejectedByReliability++;
+
+                    continue;
+                }
+
+                $attributes['reliability_score'] = $reliability->score;
+                $attributes['reliability_flags'] = $reliability->flagsToArray();
+                $attributes['reliability_scored_at'] = now();
+
                 $listing = Listing::updateOrCreate(
                     ['source' => $attributes['source'], 'external_id' => $attributes['external_id']],
                     $attributes,
@@ -60,7 +75,10 @@ class ScrapeAutovit extends Command
             usleep((int) config('scraping.request_delay_ms') * 1000);
         }
 
-        $this->info("Autovit: {$created} new, {$updated} updated, {$filteredByPrice} filtered out by price.");
+        $this->info(
+            "Autovit: {$created} new, {$updated} updated, {$filteredByPrice} filtered out by price, "
+            ."{$rejectedByReliability} rejected by reliability filter."
+        );
 
         return self::SUCCESS;
     }

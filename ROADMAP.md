@@ -68,31 +68,17 @@ later.
 listings_new, listings_updated, errors, status) and a small trait/service any scraper command can
 wrap itself with, so unattended twice-daily runs are auditable instead of a black box.
 
-## Chapter 5 — Car-knowledge reliability filter
-**Status:** not started — this is the "car expert" feature: hardcoded known-problem-engine rules
-plus a reliability score. Starting ruleset (from `car-finder-handoff.md`, to seed
-`config/car_knowledge.php` or a `reliability_rules` table — table preferred, since it's editable
-without a deploy): VW Group 1.6/2.0 TDI EA189 (emissions-scandal engines), Ford 1.6 TDCi with
-PowerShift dual-clutch automatic (known reliability issues), BMW N47 diesel (timing chain
-failure). Expand the list over time; this is the starting point, not the final one. Generic rules
-to include from the start: flag mileage suspiciously low for the car's age, flag price far below
-the market median for similar year/model.
-**Depends on:** `listings` table (done) — can be built and tested against seeded fixture rows,
-doesn't require a real scraper to exist first.
-**Builds:** a `reliability_rules` table, a scoring service, applied as a soft filter on top of
-whatever hard-filtered listings already exist.
-
 ## Chapter 6 — Seller rating check
-**Status:** not independently buildable yet — folded into whichever of Chapters 1/2 turns out to
+**Status:** not independently buildable yet — folded into whichever of Chapter 2 turns out to
 expose seller data, decided as follows so no question is needed later: Autovit's search results
 already confirmed (Chapter 1's research) to expose only seller *type* (`private`/`dealer`), no
 numeric rating — so Autovit alone doesn't support a real rating check. If Chapter 2's (OLX) HTML
 research finds an actual rating/score on seller profiles, build the check then, folded into
-Chapter 5's scoring rather than as separate infrastructure. **If neither site exposes a real
-rating**, this chapter is dropped: delete this entry from `ROADMAP.md`, note the reason in
-`CHANGELOG.md`, and fall back to the seller-type flag (private/dealer) alone as a minor signal in
-Chapter 5 instead of a hard check. No need to ask before doing this — the decision rule is already
-made here.
+`App\Services\Reliability\ReliabilityScorer` (already built — see `CHANGELOG.md`) as one more
+evaluator, rather than as separate infrastructure. **If neither site exposes a real rating**, this
+chapter is dropped: delete this entry from `ROADMAP.md`, note the reason in `CHANGELOG.md`, and
+fall back to the seller-type flag (private/dealer) alone as a minor signal in the existing scorer
+instead of a hard check. No need to ask before doing this — the decision rule is already made here.
 **Depends on:** Chapter 2 (OLX) research, since Chapter 1 already answered this for Autovit
 (negatively).
 **Builds:** TBD by the above rule — either a real rating check or nothing at all.
@@ -101,8 +87,12 @@ made here.
 **Status:** not started.
 **Depends on:** `listings` table + `notified_at` column (done), Gmail SMTP (done, tested).
 **Builds:** `notify:send` — selects listings with `notified_at IS NULL`, emails a digest, marks
-them notified. Written to work whether or not Chapter 5 (reliability filter) exists yet — with
-it, notify only the good ones; without it, notify all unnotified matches.
+them notified. Simpler than originally scoped: the reliability filter (already built) is a hard
+gate at scrape time now, not a soft annotation — anything sitting in `listings` has already passed
+both the criteria filter and the reliability check, so this command doesn't need extra filtering
+logic beyond `notified_at IS NULL`. It can still use `reliability_score`/`reliability_flags` to
+make the email itself more informative (e.g. show *why* a car is a good pick), just doesn't need
+them to decide *whether* to include it.
 
 ## Chapter 8 — Scheduler + Windows Task Scheduler wiring
 **Status:** not started, decided (confirmed via Context7 against Laravel 13.x docs). Laravel has

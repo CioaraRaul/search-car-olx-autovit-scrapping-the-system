@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Listing;
+use App\Models\ReliabilityRule;
 use App\Models\SearchCriterion;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -64,6 +65,34 @@ test('running it again does not duplicate rows, and updates a changed price', fu
 
     expect(Listing::count())->toBe(2) // still 2, not 4
         ->and(Listing::where('external_id', '9000000001')->value('price'))->toBe(4200); // updated
+});
+
+test('rejects a listing that scores below the reliability threshold, and never saves it', function () {
+    ReliabilityRule::create([
+        'name' => 'test-bad-engine',
+        'keywords' => [['badengine']],
+        'penalty' => 50, // pushes a 100 base score to 50, below the default reject_below_score of 60
+        'message' => 'Test known-problem engine.',
+    ]);
+
+    fakeAutovitSearchPage('autovit_search_page_reliability.html');
+
+    $this->artisan('scrape:autovit', ['--pages' => 1])->assertExitCode(0);
+
+    expect(Listing::where('external_id', '9100000001')->exists())->toBeFalse();
+});
+
+test('saves a listing that passes the reliability check, with its score attached', function () {
+    fakeAutovitSearchPage('autovit_search_page.html');
+
+    $this->artisan('scrape:autovit', ['--pages' => 1])->assertExitCode(0);
+
+    $listing = Listing::where('external_id', '9000000001')->first();
+
+    expect($listing)->not->toBeNull()
+        ->and($listing->reliability_score)->toBe(100) // no rules seeded in this test, nothing to flag
+        ->and($listing->reliability_flags)->toBe([])
+        ->and($listing->reliability_scored_at)->not->toBeNull();
 });
 
 test('builds the request URL without price or order params, per robots.txt', function () {
