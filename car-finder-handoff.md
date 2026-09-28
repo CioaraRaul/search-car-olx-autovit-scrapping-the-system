@@ -33,6 +33,7 @@ Tabel `listings`:
 Combinație de:
 - **Reguli hardcodate** pe bază de research: listă de motorizări cu probleme cunoscute (ex. 1.6 TDCI PowerShift, EA189, lanț distribuție N47 etc.), plus reguli generice (km suspect de mici la mașină veche, preț mult sub media pieței)
 - **Analiză text liber via LLM**: descrierea anunțului trimisă către un API (ex. Claude) pentru un scor/rezumat de riscuri ("fără accident", "unic proprietar", detalii tehnice scrise de vânzător)
+- **Verificare rating vânzător** (adăugat 2026-09-26): dacă site-ul expune un rating/scor al vânzătorului, anunțurile de la vânzători cu rating prost sunt excluse sau marcate ca risc — de verificat în faza de scraper ce date sunt disponibile efectiv (OLX vs Autovit, vânzător privat vs dealer)
 
 ### 5. Notificare zilnică
 - Cron seara: selectează toate `listings` cu `notified_at IS NULL` care trec de scor
