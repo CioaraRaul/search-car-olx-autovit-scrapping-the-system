@@ -1,0 +1,39 @@
+{
+    "id": "7060904828",
+    "title": "Skoda Kamiq 1.5 TSI DSG Style",
+    "createdAt": "2026-09-28T15:40:21Z",
+    "shortDescription": "Style, 1.5 tsi, 150 cp, efectiv nouă",
+    "url": "https://www.autovit.ro/autoturisme/anunt/skoda-kamiq-ver-1-5-tsi-dsg-style-ID7HQPTK.html",
+    "location": {
+        "city": {
+            "name": "Ramnicu Valcea"
+        },
+        "region": {
+            "name": "Valcea"
+        }
+    },
+    "price": {
+        "amount": {
+            "units": 23700,
+            "value": "23700",
+            "currencyCode": "RON"
+        }
+    },
+    "parameters": [
+        {"key": "make", "displayValue": "Skoda", "value": "skoda"},
+        {"key": "fuel_type", "displayValue": "Benzina", "value": "petrol"},
+        {"key": "mileage", "displayValue": "15100 km", "value": "15100"},
+        {"key": "engine_capacity", "displayValue": "1498 cm3", "value": "1498"},
+        {"key": "engine_power", "displayValue": "150 CP", "value": "150"},
+        {"key": "model", "displayValue": "Kamiq", "value": "kamiq"},
+        {"key": "version", "displayValue": "1.5 TSI DSG Style", "value": "ver-1-5-tsi-dsg-style"},
+        {"key": "year", "displayValue": "2025", "value": "2025"}
+    ],
+    "thumbnail": {
+        "x1": "https://ireland.apollo.olxcdn.com/v1/files/x5l4ar9ltqg73-AUTOVITRO/image;s=320x240",
+        "x2": "https://ireland.apollo.olxcdn.com/v1/files/x5l4ar9ltqg73-AUTOVITRO/image;s=640x480"
+    },
+    "seller": {
+        "__typename": "PrivateSeller"
+    }
+}
