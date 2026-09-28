@@ -7,6 +7,26 @@ progress in a way that's readable without digging through `git log`.
 ## 2026-09-28
 
 ### Added
+- **Chapter 8 complete: scheduler wiring.** `routes/console.php` now schedules all three commands
+  via Laravel's Task Scheduler: `scrape:autovit` at 07:00 and `scrape:olx` at 07:10 (morning, so
+  overnight-posted listings have accumulated by the time they run), and `notify:send` separately
+  at 22:00 (night, so the day's matches land in the inbox in the evening instead of first thing in
+  the morning). A new `schedule_timezone` config key (`config/app.php`, `SCHEDULE_TIMEZONE` in
+  `.env`, defaulting to `Europe/Bucharest`) makes those times mean local Romania time rather than
+  UTC — without it `dailyAt('07:00')` would fire at 09:00/10:00 local depending on daylight
+  saving. Each command uses `withoutOverlapping(120)` (a 120-minute lock, not Laravel's 24-hour
+  default) so a crashed run's stuck lock self-heals before the next day's trigger instead of
+  silently blocking it. `tests/Feature/ScheduleTest.php` pins down each event's cron expression,
+  timezone, and overlap-lock settings directly against Laravel's `Schedule` object, so a future
+  edit to `routes/console.php` can't silently drop or mistime one of the three entries.
+  - Laravel's scheduler needs an OS-level "heartbeat" to actually run anything — on Windows
+    (no cron) that's a Windows Task Scheduler task running `php artisan schedule:run` every
+    minute, with "Run task as soon as possible after a scheduled start is missed" checked (this
+    checkbox *is* the catch-up-if-the-PC-was-off behavior `CLAUDE.md` asks for — a native Windows
+    feature, not something built in PHP). GUI and `schtasks` setup steps are documented in
+    `.claude/plans/2026-09-28-scheduler-wiring.md` for reproducibility; creating the actual
+    Windows task is a manual one-time step, not automated by this chapter.
+
 - **Chapter 7 complete: Gmail digest notification.** A new `notify:send` Artisan command emails a
   digest of every listing with `notified_at IS NULL`, then marks them notified — so nothing is ever
   emailed twice, and a failed send leaves listings unnotified so the next run retries them
