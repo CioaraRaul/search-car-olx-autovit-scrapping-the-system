@@ -1,0 +1,38 @@
+# Changelog
+
+Every implemented change gets an entry here, in plain language — what changed and why. This is
+separate from git commit messages: commits describe a diff, this describes the project's
+progress in a way that's readable without digging through `git log`.
+
+## 2026-09-28
+
+### Added
+- `listings` table: one row per scraped car ad, unique on `(source, external_id)` so the same ad
+  never gets stored twice across scrape runs.
+- `search_criteria` table + a code-defined parameter catalog (`app/Support/CriteriaCatalog.php`)
+  — the source of truth for which search parameters exist and what values they accept.
+- `criteria:set <name> <value>` and `criteria:help` Artisan commands.
+- Starting search criteria set: `price_max=7000` (EUR), `year_min=2013`, `km_max=230000`,
+  `engine_capacity_max=2.0` (liters), `body_type=sedan,break`.
+- `tests/Pest.php` — required for Pest's functional `test()`/`it()` syntax to actually boot the
+  Laravel app; the installer's `--pest` scaffold didn't create it (see `.claude/lessons.md`).
+
+### Fixed
+- Functional Pest tests were silently not booting the app (missing `tests/Pest.php`).
+
+## 2026-09-26
+
+### Added
+- Laravel 13 (PHP 8.5) scaffolded, SQLite for storage, Pest 5 for testing, no auth scaffolding.
+- SQLite configured for WAL mode + busy timeout (5000ms) + `synchronous=NORMAL`, verified live via
+  `PRAGMA`.
+- Gmail SMTP mail configured in `.env`/`.env.example` and verified with a real test send.
+- `.claude/best-practices.md` — living Laravel/PHP conventions doc, read before writing code.
+- `.githooks/pre-commit` — blocks committing a real `.env` file (allows `.env.example`).
+- Git branching workflow: `main` (releases only) / `development` (integration) /
+  `feature`-`fix`-`docs` branches per task, merged with `--no-ff`.
+
+### Fixed
+- Fresh Laravel install on this machine (Herd on Windows) shipped `APP_URL` with a duplicated
+  port (`http://localhost:8000:8000`), breaking every `artisan` command. Corrected to a single
+  port (see `.claude/lessons.md`).
