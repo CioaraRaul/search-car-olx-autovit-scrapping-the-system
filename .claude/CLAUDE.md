@@ -5,7 +5,7 @@ Scrapes used-car listings from Autovit and OLX once a day, filters them by user-
 ## Decided stack
 - Laravel (Artisan commands + Scheduler), SQLite (WAL mode + busy_timeout)
 - Notifications: email via Gmail SMTP (app password)
-- Runs via Windows Task Scheduler, once a day at 07:00 (morning), with catch-up if the PC was off. Must stay free. One run a day means each run needs to check thoroughly (see `ROADMAP.md` Chapter 8 for the scheduling mechanism and each scraper's plan for its page-coverage default) rather than relying on a second run to catch what the first missed.
+- Runs via Windows Task Scheduler, with catch-up if the PC was off. Must stay free. Scraping (`scrape:autovit`/`scrape:olx`) runs once a day at 07:00 (morning), so overnight-posted listings have accumulated before the day starts; the notification digest (`notify:send`) runs separately at 22:00 (night), so the day's finds land in the user's inbox in the evening rather than first thing in the morning. One scrape run a day means each run needs to check thoroughly (see `ROADMAP.md` Chapter 8 for the scheduling mechanism and each scraper's plan for its page-coverage default) rather than relying on a second run to catch what the first missed.
 - No frontend for now; keep the backend API-ready for a possible Angular app later.
 - Search criteria are dynamic: user sets them by parameter name; a "help" command lists every available parameter.
 
