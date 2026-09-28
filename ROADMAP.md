@@ -24,17 +24,6 @@ Laravel not Node, no frontend yet).
 
 ---
 
-## Chapter 7 — Gmail digest notification
-**Status:** not started.
-**Depends on:** `listings` table + `notified_at` column (done), Gmail SMTP (done, tested).
-**Builds:** `notify:send` — selects listings with `notified_at IS NULL`, emails a digest, marks
-them notified. Simpler than originally scoped: the reliability filter (already built) is a hard
-gate at scrape time now, not a soft annotation — anything sitting in `listings` has already passed
-both the criteria filter and the reliability check, so this command doesn't need extra filtering
-logic beyond `notified_at IS NULL`. It can still use `reliability_score`/`reliability_flags` to
-make the email itself more informative (e.g. show *why* a car is a good pick), just doesn't need
-them to decide *whether* to include it.
-
 ## Chapter 8 — Scheduler + Windows Task Scheduler wiring
 **Status:** not started, decided (confirmed via Context7 against Laravel 13.x docs). Laravel has
 no built-in "catch up if the PC was off" feature — the standard pattern (used identically on
