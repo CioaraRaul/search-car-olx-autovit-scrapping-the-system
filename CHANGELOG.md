@@ -7,6 +7,30 @@ progress in a way that's readable without digging through `git log`.
 ## 2026-09-28
 
 ### Added
+- **Chapter 3 complete: price history + `price_eur` normalized comparison currency.** Every time a
+  listing's price is observed, `App\Services\Listings\PriceHistoryRecorder` records it in a new
+  `listing_price_changes` table if it's the first observation or the price/currency actually
+  changed (so "price dropped" history is buildable later), and refreshes a new `price_eur` column
+  on `listings` so cars priced in RON and EUR can be filtered/sorted on one consistent scale. The
+  conversion uses the National Bank of Romania's (BNR) official daily reference rate, fetched and
+  cached once every 24h (`App\Services\ExchangeRates\BnrExchangeRateService`), not per listing.
+  - **Correction to `ROADMAP.md`:** the URL it named, `https://www.bnr.ro/nbrfxrates.xml`, is dead
+    — BNR moved this feed during a site redesign and that URL now returns their HTML homepage.
+    Verified live and replaced with the working feed: `https://curs.bnr.ro/nbrfxrates.xml`
+    (subdomain `curs.bnr.ro`), configurable via `.env`'s `BNR_RATES_URL` so a future move is a
+    one-line config change, not a code change.
+  - A single BNR outage doesn't stop a scrape run: `PriceHistoryRecorder` still records the price
+    history row, logs a warning, and leaves `price_eur` stale/null until the next successful fetch
+    — proper backoff/circuit-breaker handling is Chapter 9's job, not this one's.
+  - Deliberately standalone: this doesn't touch `listings.price`/`listings.currency` (still each
+    scraper's own job) and isn't wired into `ScrapeAutovit`/`ScrapeOlx` yet — either can call
+    `PriceHistoryRecorder::recordIfChanged()` as a follow-up, per `ROADMAP.md`'s own chapter
+    boundary ("Either scraper can call a small hook once this exists").
+  - New tests: `tests/Feature/BnrExchangeRateServiceTest.php` (EUR passthrough, RON/USD/multiplier
+    currency conversion math, cached-fetch-at-most-once) and
+    `tests/Feature/PriceHistoryRecorderTest.php` (first observation, no duplicate row on an
+    unchanged price, new row + refreshed `price_eur` on a changed price, outage handling).
+
 - **Chapter 2 complete: `scrape:olx`.** OLX's counterpart to `scrape:autovit` — fetches, filters,
   and hard-gates OLX listings the same way, but the implementation had to differ in a few
   genuinely new ways discovered by inspecting the live site today (not assumed from the two-day-old

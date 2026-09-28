@@ -24,17 +24,6 @@ Laravel not Node, no frontend yet).
 
 ---
 
-## Chapter 3 — Price history + normalized comparison currency
-**Status:** not started, decided. RON→EUR rate source: the National Bank of Romania's (BNR) free
-public daily rate feed (`https://www.bnr.ro/nbrfxrates.xml`) — no API key, no auth, one official
-rate per day. Fetch and cache it once per day (e.g. Laravel's cache with a 24h TTL), don't call it
-per-listing.
-**Depends on:** `listings` table (done) — does not need either scraper to exist first.
-**Builds:** a `listing_price_changes` table (listing_id, price, currency, recorded_at) and a
-`price_eur` column on `listings`, computed via the cached BNR rate, so listings priced in
-different currencies can still be filtered/sorted consistently. Either scraper can call a small
-"record if price changed" hook once this exists.
-
 ## Chapter 4 — Ingestion run logging
 **Status:** not started.
 **Depends on:** nothing beyond the current schema — buildable standalone, wired into scrapers

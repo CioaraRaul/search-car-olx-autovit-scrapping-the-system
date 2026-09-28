@@ -48,10 +48,11 @@ Format: **What happened** → **Lesson** → **How to apply**.
 
 ## Testing
 
-### A second `Http::fake()` call doesn't override an already-hit URL pattern (2026-09-28)
+### A second `Http::fake()` call doesn't override an already-registered URL pattern (2026-09-28, widened)
 - **What happened:** A test that ran a command twice (to check "second run updates instead of duplicating") called `Http::fake([...])` again between the two runs, with a changed fixture body for the same URL pattern. The second run still got the *first* fixture's data — confirmed via a throwaway debug test (`dump()`'d both bodies: `first`/`first`, not `first`/`second`).
-- **Lesson:** Once a URL pattern has actually been matched by a fake, registering a new `Http::fake()` for that same pattern later in the same test doesn't take effect for that URL — the original response sticks.
-- **How to apply:** To test multiple sequential calls to the same URL returning different bodies, register `Http::sequence()->push($body1)->push($body2)` once, upfront, for that URL pattern — don't call `Http::fake()` again mid-test expecting it to override.
+- **Widened while building Chapter 3 (`PriceHistoryRecorderTest`):** it's not just "already hit" URLs. A `beforeEach()` that registers `Http::fake(['url' => success])` for a pattern, followed by a test body that calls `Http::fake(['url' => failure])` for the *same* pattern — with **zero** requests made in between — still served the first (success) response, not the second. So the rule is simpler and stricter than originally written: once a pattern has been registered by any `Http::fake()` call, a later `Http::fake()` call for that same pattern in the same test doesn't take effect at all, hit or not.
+- **Lesson:** Register each URL pattern's fake response exactly once per test. Don't rely on a shared `beforeEach()` fake for a pattern and then try to override it for one specific test — that test won't get the override.
+- **How to apply:** For multiple sequential responses from the same URL, use `Http::sequence()->push($body1)->push($body2)` once, upfront. For a test that needs different behavior (e.g. a simulated outage) than the shared `beforeEach()`, don't put that URL's fake in `beforeEach()` at all — register it only inside the tests that need the success case, and let the outage test register its own, once.
 
 ### `laravel new --pest` didn't scaffold `tests/Pest.php` (2026-09-28)
 - **What happened:** New Pest functional tests (`test('...', fn () => ...)`) failed with `Call to undefined method Tests\Feature\...::artisan()` and `Target class [config] does not exist` — the Laravel app was never being booted for them.
