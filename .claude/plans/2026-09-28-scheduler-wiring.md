@@ -90,7 +90,36 @@ overdue and run them.
    go-ahead (see "Needs from you"), since it changes Windows state outside the git repo/this
    project, not just files in it.
 
-### Windows Task Scheduler setup (manual, one-time, reproducible)
+### Windows Task Scheduler setup — actually done (2026-09-28)
+
+Created via PowerShell's `ScheduledTasks` module rather than the GUI, with the user's go-ahead.
+Task name: **Car Finder Scheduler**. Action: `C:\Users\cioara\.config\herd\bin\php85\php.exe
+artisan schedule:run`, working directory `C:\a.coding\olx`. Trigger: once, repeating every 1
+minute for 3650 days (10 years — `RepetitionDuration` rejects `[TimeSpan]::MaxValue` as
+out-of-range for the underlying task XML schema, so a large-but-finite value stands in for
+"indefinitely"; renewing this in 2036 is a future problem, not a real one for a hobby project).
+`StartWhenAvailable` is on (the catch-up behaviour) and `ExecutionTimeLimit` is 1 hour (a hung
+`schedule:run` gets killed rather than lingering forever).
+
+**Deviation from the original draft:** the logon type is `Interactive`, not `S4U`. `S4U` (or any
+logon type that lets a task run *whether the user is logged on or not*) requires the "Log on as a
+batch job" right, which `Register-ScheduledTask` can only grant from an **elevated** (Administrator)
+PowerShell session — this session's shell reported `BUILTIN\Administrators ... Group used for deny
+only`, i.e. not elevated, and elevating isn't something achievable non-interactively (UAC needs a
+human click, and typing a Windows account password into an automated session isn't something this
+should do). `Interactive` logon needs no elevation and no stored password, but means the task only
+runs while `cioara` is logged in (locked screen is fine; a full log-off or unattended reboot without
+auto-login is not).
+- **Practical impact:** none, for how this PC is normally used (left logged in). If that ever
+  changes, re-registering with `S4U` from an elevated PowerShell (or via the GUI's Settings tab,
+  which prompts for the password itself) upgrades this later — no code change needed, just
+  re-running the registration with admin rights.
+- **Verified working:** `Start-ScheduledTask` run manually →
+  `Get-ScheduledTaskInfo` showed `LastTaskResult: 0` (`0x0`, success) and a `NextRunTime` exactly
+  one minute later, confirming the every-minute repetition is live.
+
+### Windows Task Scheduler setup (original draft, manual/GUI alternative — superseded by the above,
+kept for reference/reproducibility if the task ever needs recreating from scratch)
 
 **GUI steps:**
 1. Open **Task Scheduler** (`taskschd.msc`) → **Create Task** (not "Basic Task" — we need the
