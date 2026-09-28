@@ -7,6 +7,14 @@ progress in a way that's readable without digging through `git log`.
 ## 2026-09-28
 
 ### Added
+- `CLAUDE.md` rule 10 now explicitly ends the branch workflow with `git push origin development`
+  — previously implied, now written down so it's never skipped.
+- Resolved every open decision in `ROADMAP.md` so no chapter needs a question answered before
+  starting: OLX's confirmed query parameters and field-name differences from Autovit (Chapter 2),
+  the BNR daily-rate feed as the RON→EUR source (Chapter 3), the seeded known-problem-engine list
+  (Chapter 5), a concrete fallback rule for the seller-rating chapter if no site exposes one
+  (Chapter 6), and the Windows Task Scheduler + `schedule:run`-every-minute pattern with its
+  native missed-run checkbox as the catch-up mechanism, plus default run times (Chapter 8).
 - `listings` table: one row per scraped car ad, unique on `(source, external_id)` so the same ad
   never gets stored twice across scrape runs.
 - `search_criteria` table + a code-defined parameter catalog (`app/Support/CriteriaCatalog.php`)

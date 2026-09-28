@@ -7,10 +7,13 @@ on its own, by any session, in any order, without waiting on the others.
 
 **How this doc is used:** say "do chapter N" and only that chapter gets built. Starting a chapter
 still goes through the normal process in `CLAUDE.md` (plan-first → branch → test → changelog →
-merge) — this file is the menu, not a substitute for planning each one properly. When a chapter
-is finished and merged into `development`, **its entry gets deleted from this file** — the
-permanent record lives in `CHANGELOG.md` and the branch's plan file under `.claude/plans/`, so
-nothing is lost, this file just always shows what's left.
+merge → push `development` to origin) — this file is the menu, not a substitute for planning each
+one properly. Every open decision each chapter needs has already been made below — starting one
+shouldn't require asking a question first; the remaining "research" noted in some chapters is
+implementation discovery (e.g. reading a page's real HTML), not a decision left for you to make.
+When a chapter is finished and merged into `development`, **its entry gets deleted from this
+file** — the permanent record lives in `CHANGELOG.md` and the branch's plan file under
+`.claude/plans/`, so nothing is lost, this file just always shows what's left.
 
 Credit where due: the shape of several chapters below (incremental/polite crawling, run logging,
 price history, resilience flags) was adapted from a reference ingestion plan the user shared,
@@ -28,18 +31,32 @@ Laravel not Node, no frontend yet).
 as live search filters, upserts into `listings`.
 
 ## Chapter 2 — OLX scraper
-**Status:** not planned yet — needs its own research pass (OLX renders listings as HTML, not a
-JSON blob, so this needs `symfony/dom-crawler` + `symfony/css-selector` and real selector
-discovery; also needs re-verifying the TLS 1.2 requirement from PHP/Guzzle specifically, not just
-PowerShell). The `currency=EUR` query parameter is already confirmed working live.
+**Status:** not planned yet, but the approach is decided. OLX renders listings as real HTML
+(`data-testid="l-card"` elements, confirmed live — no `__NEXT_DATA__`/JSON blob like Autovit), so
+this uses `symfony/dom-crawler` + `symfony/css-selector` (added via Composer) instead of JSON
+parsing. Confirmed live query parameters (user-supplied, verified working):
+`https://www.olx.ro/auto-masini-moto-ambarcatiuni/autoturisme/?currency=EUR&search[filter_float_price:to]=7000&search[filter_float_year:from]=2013&search[filter_float_rulaj_pana:to]=230000&search[filter_enum_car_body][0]=sedan&search[filter_enum_car_body][1]=estate-car&search[filter_float_enginesize:to]=2000`
+— note OLX's field names differ from Autovit's (`filter_float_rulaj_pana` not `filter_float_mileage`,
+`filter_enum_car_body` not `filter_enum_body_type`, values `sedan`/`estate-car` not `sedan`/`combi`),
+and OLX has a genuine top-level `currency=EUR` parameter, unlike Autovit. Decided defaults:
+reuse `config/scraping.php` from Chapter 1 (same User-Agent/delay/page-cap pattern), same
+`updateOrCreate` upsert approach into `listings`. TLS: re-verify the 1.2-pinning requirement from
+PHP/`Http` specifically (not assumed from the PowerShell/curl findings in `lessons.md`) — if
+still needed, use `Http::withOptions(['curl' => [CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2]])`.
+Exact CSS selectors for price/title/year/km/etc. inside each `l-card` still need discovering from
+the real page — that's implementation research done when this chapter starts, not a decision
+needing your input first.
 **Depends on:** `listings` + `search_criteria` schema (done).
 **Builds:** `scrape:olx`.
 
 ## Chapter 3 — Price history + normalized comparison currency
-**Status:** not started.
+**Status:** not started, decided. RON→EUR rate source: the National Bank of Romania's (BNR) free
+public daily rate feed (`https://www.bnr.ro/nbrfxrates.xml`) — no API key, no auth, one official
+rate per day. Fetch and cache it once per day (e.g. Laravel's cache with a 24h TTL), don't call it
+per-listing.
 **Depends on:** `listings` table (done) — does not need either scraper to exist first.
 **Builds:** a `listing_price_changes` table (listing_id, price, currency, recorded_at) and a
-`price_eur` column on `listings` (using a cached daily RON→EUR rate) so listings priced in
+`price_eur` column on `listings`, computed via the cached BNR rate, so listings priced in
 different currencies can still be filtered/sorted consistently. Either scraper can call a small
 "record if price changed" hook once this exists.
 
@@ -53,20 +70,32 @@ wrap itself with, so unattended twice-daily runs are auditable instead of a blac
 
 ## Chapter 5 — Car-knowledge reliability filter
 **Status:** not started — this is the "car expert" feature: hardcoded known-problem-engine rules
-(e.g. VW EA189, Ford PowerShift, BMW N47 — already named in `car-finder-handoff.md`) plus a
-reliability score.
+plus a reliability score. Starting ruleset (from `car-finder-handoff.md`, to seed
+`config/car_knowledge.php` or a `reliability_rules` table — table preferred, since it's editable
+without a deploy): VW Group 1.6/2.0 TDI EA189 (emissions-scandal engines), Ford 1.6 TDCi with
+PowerShift dual-clutch automatic (known reliability issues), BMW N47 diesel (timing chain
+failure). Expand the list over time; this is the starting point, not the final one. Generic rules
+to include from the start: flag mileage suspiciously low for the car's age, flag price far below
+the market median for similar year/model.
 **Depends on:** `listings` table (done) — can be built and tested against seeded fixture rows,
 doesn't require a real scraper to exist first.
-**Builds:** a rules table or config-based ruleset, a scoring service, applied as a soft filter on
-top of whatever hard-filtered listings already exist.
+**Builds:** a `reliability_rules` table, a scoring service, applied as a soft filter on top of
+whatever hard-filtered listings already exist.
 
 ## Chapter 6 — Seller rating check
-**Status:** blocked on research, not independently buildable yet. Autovit's search results do
-expose a seller type (`private`/`dealer`) but no rating value was seen in initial reconnaissance
-— unclear if either site exposes a real rating at all. Likely folds into Chapter 5's scoring
-rather than becoming fully separate.
-**Depends on:** whichever scraper(s) exist, since it needs to see real seller data first.
-**Builds:** TBD, pending that research.
+**Status:** not independently buildable yet — folded into whichever of Chapters 1/2 turns out to
+expose seller data, decided as follows so no question is needed later: Autovit's search results
+already confirmed (Chapter 1's research) to expose only seller *type* (`private`/`dealer`), no
+numeric rating — so Autovit alone doesn't support a real rating check. If Chapter 2's (OLX) HTML
+research finds an actual rating/score on seller profiles, build the check then, folded into
+Chapter 5's scoring rather than as separate infrastructure. **If neither site exposes a real
+rating**, this chapter is dropped: delete this entry from `ROADMAP.md`, note the reason in
+`CHANGELOG.md`, and fall back to the seller-type flag (private/dealer) alone as a minor signal in
+Chapter 5 instead of a hard check. No need to ask before doing this — the decision rule is already
+made here.
+**Depends on:** Chapter 2 (OLX) research, since Chapter 1 already answered this for Autovit
+(negatively).
+**Builds:** TBD by the above rule — either a real rating check or nothing at all.
 
 ## Chapter 7 — Gmail digest notification
 **Status:** not started.
@@ -76,13 +105,22 @@ them notified. Written to work whether or not Chapter 5 (reliability filter) exi
 it, notify only the good ones; without it, notify all unnotified matches.
 
 ## Chapter 8 — Scheduler + Windows Task Scheduler wiring
-**Status:** not started.
+**Status:** not started, decided (confirmed via Context7 against Laravel 13.x docs). Laravel has
+no built-in "catch up if the PC was off" feature — the standard pattern (used identically on
+Windows and Linux) is a single OS-level trigger that runs `php artisan schedule:run` every
+minute; Laravel's own schedule definition decides what actually executes each time. On Windows
+(no cron), that OS-level trigger is a Windows Task Scheduler task: action = run
+`php artisan schedule:run` from the project directory, trigger = repeat every 1 minute
+indefinitely, **with "Run task as soon as possible after a scheduled start is missed" checked in
+the task's Settings tab** — that checkbox *is* the catch-up mechanism CLAUDE.md asks for; it's a
+native Windows Task Scheduler feature, not something to build. Default run times:
+`Schedule::command('scrape:autovit')->twiceDaily(9, 21)` (09:00 and 21:00) — changeable later,
+just needs a concrete starting point now. Use `->withoutOverlapping()` on each scheduled command
+so a slow run never overlaps the next trigger.
 **Depends on:** nothing functionally — can be built now and simply won't do much until scraper/
 notify commands exist to schedule.
-**Builds:** `routes/console.php` schedule entries (twice daily) and a documented Windows Task
-Scheduler setup running `php artisan schedule:run`, with the catch-up-if-the-PC-was-off behavior
-`CLAUDE.md` calls for — needs proper research into Laravel's scheduler options for this, not
-assumed.
+**Builds:** `routes/console.php` schedule entries and written Windows Task Scheduler setup steps
+(documented in this chapter's plan, so they're reproducible if the PC is ever reconfigured).
 
 ## Chapter 9 — Resilience: backoff, circuit breaker, kill switches
 **Status:** not started, cross-cutting.
