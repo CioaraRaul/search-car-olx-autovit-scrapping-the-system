@@ -7,6 +7,22 @@ progress in a way that's readable without digging through `git log`.
 ## 2026-09-28
 
 ### Added
+- **Chapter 7 complete: Gmail digest notification.** A new `notify:send` Artisan command emails a
+  digest of every listing with `notified_at IS NULL`, then marks them notified — so nothing is ever
+  emailed twice, and a failed send leaves listings unnotified so the next run retries them
+  naturally. `App\Services\Notifications\ListingsDigestNotifier` holds the logic (fetch → send →
+  mark, in that order, only marking notified *after* the send succeeds); `App\Mail\ListingsDigest`
+  is a Markdown Mailable (not a `Notification` class — there's no `User`/`Notifiable` model in this
+  app, just one fixed recipient) rendered by `resources/views/mail/listings/digest.blade.php`,
+  which shows each listing's price (with an EUR-equivalent line when `price_eur` is set), year,
+  mileage, city, source, reliability score, and any reliability flags, plus a link to the original
+  ad. The recipient address is config-driven (`config/notifications.php`, `NOTIFY_RECIPIENT_EMAIL`
+  in `.env`), not hardcoded. If nothing is unnotified, the command sends no email and exits
+  cleanly — a quiet day produces zero mail, not an empty digest.
+  - Command fails loudly (non-zero exit, no email attempted) if `NOTIFY_RECIPIENT_EMAIL` isn't
+    configured, matching the "fail with a clear message" pattern used elsewhere in the project.
+  - No queueing: sent synchronously, which is fine for a low-volume once-a-day digest.
+
 - **Chapter 4 complete: ingestion run logging.** A new `ingestion_runs` table (source, started_at,
   finished_at, pages_fetched, listings_new, listings_updated, errors, status) gives every scraper
   execution an auditable record instead of a black box, once wired in. `App\Services\Ingestion\
