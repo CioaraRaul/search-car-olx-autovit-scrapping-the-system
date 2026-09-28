@@ -15,6 +15,13 @@ Format: **What happened** → **Lesson** → **How to apply**.
 - **Lesson:** Parse `__NEXT_DATA__`, then decode the inner strings that contain `advertSearch` (listings) or `OpenForInputFilterState` (filters). Don't parse the HTML.
 - **How to apply:** Build the Autovit scraper on that JSON. Filters are URL params such as `search[filter_float_price:to]=10000`.
 
+## Testing
+
+### `laravel new --pest` didn't scaffold `tests/Pest.php` (2026-09-28)
+- **What happened:** New Pest functional tests (`test('...', fn () => ...)`) failed with `Call to undefined method Tests\Feature\...::artisan()` and `Target class [config] does not exist` — the Laravel app was never being booted for them.
+- **Lesson:** `tests/Pest.php` (the file that runs `uses(Tests\TestCase::class)->in('Feature')` to bind functional tests to Laravel's TestCase) never got created by the installer, even with `--pest`. The two example tests it did generate are PHPUnit-class-style, which don't need that binding — so the gap wasn't obvious until the first functional-style test file was added.
+- **How to apply:** After scaffolding a fresh Laravel+Pest app, check `tests/Pest.php` exists before writing any `test()`/`it()`-style test. If missing, create it with `uses(Tests\TestCase::class)->in('Feature');`.
+
 ## Tooling (Windows)
 
 ### PHP is not on the Git Bash PATH (2026-09-26)
