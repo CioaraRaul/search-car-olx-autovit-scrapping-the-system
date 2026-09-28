@@ -113,10 +113,14 @@ minute; Laravel's own schedule definition decides what actually executes each ti
 `php artisan schedule:run` from the project directory, trigger = repeat every 1 minute
 indefinitely, **with "Run task as soon as possible after a scheduled start is missed" checked in
 the task's Settings tab** — that checkbox *is* the catch-up mechanism CLAUDE.md asks for; it's a
-native Windows Task Scheduler feature, not something to build. Default run times:
-`Schedule::command('scrape:autovit')->twiceDaily(9, 21)` (09:00 and 21:00) — changeable later,
-just needs a concrete starting point now. Use `->withoutOverlapping()` on each scheduled command
-so a slow run never overlaps the next trigger.
+native Windows Task Scheduler feature, not something to build. **Once a day, in the morning:**
+`Schedule::command('scrape:autovit')->dailyAt('07:00')` (same pattern for `scrape:olx` and
+`notify:send`, staggered a few minutes apart so they don't compete for the SQLite write lock at
+the exact same second) — 07:00 chosen so overnight-posted listings have accumulated and results
+are ready before the day starts. Since there's only one run a day now, each scraper's own page
+cap is set generously (see each scraper's plan) rather than relying on a second run to catch what
+the first missed. Use `->withoutOverlapping()` on each scheduled command so a slow run never
+overlaps the next trigger.
 **Depends on:** nothing functionally — can be built now and simply won't do much until scraper/
 notify commands exist to schedule.
 **Builds:** `routes/console.php` schedule entries and written Windows Task Scheduler setup steps
