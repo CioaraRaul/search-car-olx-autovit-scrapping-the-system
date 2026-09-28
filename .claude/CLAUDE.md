@@ -18,7 +18,8 @@ Scrapes used-car listings from Autovit and OLX twice a day, filters them by user
 6. **Check best practices.** Read `.claude/best-practices.md` before writing code. It's a living doc — append newly confirmed Laravel/PHP conventions there (via Context7) rather than relying on memory.
 7. **Test everything.** Every code change needs a passing test (`php artisan test`) before it's reported as done.
 8. **Never let `.env` reach git.** Before any commit or push, confirm `.env` isn't staged (`git status`). A tracked pre-commit hook (`.githooks/pre-commit`, wired via `git config core.hooksPath .githooks`) blocks it automatically — don't bypass it with `--no-verify` without a specific reason from the user.
-9. **Branch workflow — IMPORTANT, no exceptions.** Never commit directly to `main` or `development`.
+9. **Keep `CHANGELOG.md` current.** Every implemented change gets an entry there (what changed and why, in plain language) as part of the same branch/commit that makes the change — not a separate cleanup pass later. This is in addition to, not instead of, descriptive commit messages.
+10. **Branch workflow — IMPORTANT, no exceptions.** Never commit directly to `main` or `development`.
    - Plan first (rule 1), then create a branch off `development` named for the task: `feature/<short-task-name>` for new functionality, `fix/<short-task-name>` for bugs, `docs/<short-task-name>` for documentation-only changes.
    - Do the work, test it (rule 7).
    - Commit with a specific, descriptive message — what changed and why, not "update" or "fix stuff".
