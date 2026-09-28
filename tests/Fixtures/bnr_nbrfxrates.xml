@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<DataSet xmlns="https://www.bnr.ro/xsd" xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://curs.bnr.ro/xsd/nbrfxrates.xsd"><Header><Publisher>National Bank of Romania</Publisher><PublishingDate>2026-09-28</PublishingDate><MessageType>DR</MessageType></Header><Body><Subject>Reference rates</Subject><OrigCurrency>RON</OrigCurrency><Cube date="2026-09-28"><Rate currency="EUR">5.2786</Rate><Rate currency="USD">4.6397</Rate><Rate currency="HUF" multiplier="100">1.4350</Rate></Cube></Body></DataSet>
