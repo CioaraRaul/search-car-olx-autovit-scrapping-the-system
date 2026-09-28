@@ -28,13 +28,20 @@ Laravel not Node, no frontend yet).
 **Status:** planned and ready — `.claude/plans/2026-09-28-autovit-scraper.md`, awaiting go-ahead.
 **Depends on:** `listings` + `search_criteria` schema (done).
 **Builds:** `scrape:autovit` — parses Autovit's `__NEXT_DATA__` JSON, applies your saved criteria
-as live search filters, upserts into `listings`.
+as live search filters, upserts into `listings`. Also builds `RobotsTxtGuard`, a general-purpose
+`robots.txt` compliance checker (not Autovit-specific) that Chapter 2 reuses.
 
 ## Chapter 2 — OLX scraper
 **Status:** not planned yet, but the approach is decided. OLX renders listings as real HTML
 (`data-testid="l-card"` elements, confirmed live — no `__NEXT_DATA__`/JSON blob like Autovit), so
 this uses `symfony/dom-crawler` + `symfony/css-selector` (added via Composer) instead of JSON
-parsing. Confirmed live query parameters (user-supplied, verified working):
+parsing. Reuses `App\Services\Scraping\RobotsTxtGuard` (built in Chapter 1, general-purpose —
+`RobotsTxtGuard::for('https://www.olx.ro')->isAllowed($url)`) rather than rebuilding robots.txt
+parsing — this is the one place this chapter genuinely benefits from Chapter 1 having landed
+first; if OLX is built before Autovit for some reason, build `RobotsTxtGuard` here instead, it's a
+small, self-contained piece either chapter can own. OLX's own `robots.txt` was already checked
+(Chapter 1's research) and has no restriction matching this chapter's planned query params.
+Confirmed live query parameters (user-supplied, verified working):
 `https://www.olx.ro/auto-masini-moto-ambarcatiuni/autoturisme/?currency=EUR&search[filter_float_price:to]=7000&search[filter_float_year:from]=2013&search[filter_float_rulaj_pana:to]=230000&search[filter_enum_car_body][0]=sedan&search[filter_enum_car_body][1]=estate-car&search[filter_float_enginesize:to]=2000`
 — note OLX's field names differ from Autovit's (`filter_float_rulaj_pana` not `filter_float_mileage`,
 `filter_enum_car_body` not `filter_enum_body_type`, values `sedan`/`estate-car` not `sedan`/`combi`),

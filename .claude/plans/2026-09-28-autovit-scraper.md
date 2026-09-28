@@ -41,6 +41,16 @@ quirk already logged in `lessons.md`) and will be a separate plan once this one 
   deciding what to store. Trade-off: no more guaranteed strict newest-first fetch order from the
   site itself — acceptable, since coverage now comes from paging thoroughly through each single
   daily run (see below) rather than from sort order.
+- **This becomes a real, general, runtime-enforced check — not a one-time manual read.** Rather
+  than just hand-fixing this one plan and hoping nothing else gets missed (here, or on OLX, or if
+  Autovit changes its `robots.txt` later), this plan builds a shared `RobotsTxtGuard` service:
+  fetch a site's `robots.txt` (cached, so it's not re-fetched every page), parse its `Disallow`/
+  `Allow` rules for `User-agent: *`, and expose `isAllowed(string $url): bool`. Both
+  `AutovitClient` (this plan) and the future `OlxClient` (Chapter 2) call it before every request
+  and refuse to fetch a disallowed URL — the same method, called once per site with that site's
+  own base URL, since the parsing logic is identical even though the two sites' actual rules
+  differ. This is Autovit's plan because Autovit is being built first, but the class itself isn't
+  Autovit-specific.
 - **Data available per listing in the search results themselves:** id, title, short description,
   URL, city, price + currency, year, mileage, engine capacity, horsepower, fuel type, two
   thumbnail photo URLs, seller type (private/dealer).
@@ -61,39 +71,54 @@ quirk already logged in `lessons.md`) and will be a separate plan once this one 
 
 1. **`config/scraping.php`** — base URL, a realistic User-Agent string, default max pages per run,
    and a delay between page requests (politeness/rate-limiting) — configurable, not hardcoded.
-2. **`app/Services/Scraping/AutovitClient.php`** — builds the query string from current
+2. **`app/Services/Scraping/RobotsTxtGuard.php`** — general-purpose, not Autovit-specific:
+   `RobotsTxtGuard::for(string $baseUrl)` fetches and caches that site's `robots.txt` (24h TTL —
+   sites don't change these often, no need to refetch every run), parses `Disallow`/`Allow` for
+   `User-agent: *` (simple wildcard matching — the same algorithm Google's crawler uses: longest/
+   most-specific matching rule wins, `Allow` wins ties), and `->isAllowed(string $url): bool`
+   checks one URL against those rules. No network call needed to *use* it beyond the first cached
+   fetch.
+3. **`app/Services/Scraping/AutovitClient.php`** — builds the query string from current
    `SearchCriterion` values (via the existing `CriteriaCatalog`) — **excluding** price and sort
-   order, per the `robots.txt` finding above — fetches one search-results page via Laravel's
-   `Http` facade, extracts `__NEXT_DATA__` (robust regex — the naive one from `lessons.md` broke
-   on this exact page because of an extra `nonce`/`crossorigin` attribute; noting the fix), walks
-   `pageProps.urqlState` for the entry containing `advertSearch`, and returns the parsed listings +
-   pagination info for that page.
-3. **`app/Services/Scraping/AutovitListingMapper.php`** — maps one raw Autovit listing node to the
+   order, per the `robots.txt` finding above — calls `RobotsTxtGuard::for('https://www.autovit.ro')
+   ->isAllowed($url)` before every request and throws rather than fetching if it's ever false (a
+   safety net, since we've already designed the URL to be allowed — this catches the case where
+   Autovit's rules change later without anyone noticing), fetches one search-results page via
+   Laravel's `Http` facade, extracts `__NEXT_DATA__` (robust regex — the naive one from
+   `lessons.md` broke on this exact page because of an extra `nonce`/`crossorigin` attribute;
+   noting the fix), walks `pageProps.urqlState` for the entry containing `advertSearch`, and
+   returns the parsed listings + pagination info for that page.
+4. **`app/Services/Scraping/AutovitListingMapper.php`** — maps one raw Autovit listing node to the
    `Listing` model's attributes (field mapping table above), and exposes the parsed price so the
    command can apply `price_max` client-side.
-4. **`app/Console/Commands/ScrapeAutovit.php`** (`scrape:autovit {--pages=}`) — loops pages
+5. **`app/Console/Commands/ScrapeAutovit.php`** (`scrape:autovit {--pages=}`) — loops pages
    (site's default order) up to the configured/given max, maps each listing, **discards any whose
    price exceeds `price_max`** (client-side, since the site can't filter this for us anymore), and
    `Listing::updateOrCreate(['source' => ..., 'external_id' => ...], [...])` for the rest — inserts
    new ones, updates existing ones (e.g. a price change), never duplicates. Prints a summary
    (created vs. updated vs. price-filtered-out count) at the end.
-5. **Tests (Pest)**, using a saved real (trimmed) fixture — no live network calls in tests, per
+6. **Tests (Pest)**, using a saved real (trimmed) fixture — no live network calls in tests, per
    `best-practices.md`:
+   - `RobotsTxtGuard` correctly allows/disallows URLs against a fixture `robots.txt` containing
+     both a plain path disallow and a wildcard one (covering the `*_price*`/`*[order]=*` shape).
    - The mapper correctly converts one real captured listing node into `Listing` attributes.
    - Running the command against a faked HTTP response (`Http::fake()`) creates the right rows.
    - Running it twice with the same fixture doesn't create duplicates; a changed price in the
      second fixture updates the existing row instead.
    - `body_type`/`transmission` come back `null` (documenting the known limitation, not silently
      losing test coverage of it).
-6. **Branch + changelog** per rules 9–10: `feature/autovit-scraper` off `development`, commit,
+7. **Branch + changelog** per rules 9–10: `feature/autovit-scraper` off `development`, commit,
    `CHANGELOG.md` entry, merge `--no-ff`, delete branch.
 
 ## Files
 - `config/scraping.php` — new
+- `app/Services/Scraping/RobotsTxtGuard.php` — new — general-purpose, reused by OLX later
 - `app/Services/Scraping/AutovitClient.php` — new
 - `app/Services/Scraping/AutovitListingMapper.php` — new
 - `app/Console/Commands/ScrapeAutovit.php` — new
 - `tests/Fixtures/autovit_search_page.html` — new — a real, trimmed 2-listing capture
+- `tests/Fixtures/robots_with_wildcards.txt` — new — a small fixture for `RobotsTxtGuard` tests
+- `tests/Unit/RobotsTxtGuardTest.php` — new
 - `tests/Unit/AutovitListingMapperTest.php` — new
 - `tests/Feature/ScrapeAutovitCommandTest.php` — new
 - `CHANGELOG.md` — changed
