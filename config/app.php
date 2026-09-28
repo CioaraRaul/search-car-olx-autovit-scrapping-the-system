@@ -69,6 +69,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Scheduler Timezone
+    |--------------------------------------------------------------------------
+    |
+    | The Task Scheduler (routes/console.php) uses this timezone to decide
+    | when a dailyAt()/at() time is actually due, independent of the app
+    | timezone above — so app timestamps stay on UTC while scheduled tasks
+    | fire at the right local (Romania) time.
+    |
+    */
+
+    'schedule_timezone' => env('SCHEDULE_TIMEZONE', 'Europe/Bucharest'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |
