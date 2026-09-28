@@ -7,6 +7,23 @@ progress in a way that's readable without digging through `git log`.
 ## 2026-09-28
 
 ### Added
+- **Chapter 4 complete: ingestion run logging.** A new `ingestion_runs` table (source, started_at,
+  finished_at, pages_fetched, listings_new, listings_updated, errors, status) gives every scraper
+  execution an auditable record instead of a black box, once wired in. `App\Services\Ingestion\
+  IngestionRunTracker` is the small service any scraper command can use: `start()` opens a run,
+  `incrementPages()`/`incrementNew()`/`incrementUpdated()`/`recordError()` update it as work
+  happens, `finish()` closes it, and `run(source, callback)` is a convenience wrapper that marks a
+  run `Success` or `Failed` (recording the exception message) automatically around a callback,
+  re-throwing so the caller still sees the failure. Chose a service over a trait so the run-
+  tracking state doesn't silently mix into every command class using it, and stays testable in
+  isolation. Status is a new backed enum, `IngestionRunStatus`
+  (`Running`/`Success`/`Failed`/`Partial`), matching `ListingSource`'s existing pattern.
+  - Deliberately standalone, per its own `ROADMAP.md` boundary: nothing calls it yet.
+    `ScrapeAutovit`/`ScrapeOlx` (Chapters 1/2, already merged) can adopt it as a follow-up whenever
+    that's wanted — this chapter only had to prove the tracker works correctly in isolation, which
+    `tests/Feature/IngestionRunTrackerTest.php` does directly against the service rather than a
+    real scrape.
+
 - **Chapter 3 complete: price history + `price_eur` normalized comparison currency.** Every time a
   listing's price is observed, `App\Services\Listings\PriceHistoryRecorder` records it in a new
   `listing_price_changes` table if it's the first observation or the price/currency actually

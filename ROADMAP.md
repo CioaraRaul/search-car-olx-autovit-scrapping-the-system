@@ -24,14 +24,6 @@ Laravel not Node, no frontend yet).
 
 ---
 
-## Chapter 4 — Ingestion run logging
-**Status:** not started.
-**Depends on:** nothing beyond the current schema — buildable standalone, wired into scrapers
-later.
-**Builds:** an `ingestion_runs` table (source, started_at, finished_at, pages_fetched,
-listings_new, listings_updated, errors, status) and a small trait/service any scraper command can
-wrap itself with, so unattended twice-daily runs are auditable instead of a black box.
-
 ## Chapter 7 — Gmail digest notification
 **Status:** not started.
 **Depends on:** `listings` table + `notified_at` column (done), Gmail SMTP (done, tested).
