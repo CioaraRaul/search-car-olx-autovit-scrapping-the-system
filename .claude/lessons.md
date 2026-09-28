@@ -5,10 +5,41 @@ Format: **What happened** → **Lesson** → **How to apply**.
 
 ## Scraping
 
-### OLX blocks TLS 1.3 connections (2026-09-26)
-- **What happened:** Every request to olx.ro (page and `/api/v1/offers/`) returned CloudFront 403, from curl and from PHP. PowerShell's `Invoke-WebRequest` worked.
-- **Lesson:** It was not the headers or user-agent. OLX rejects TLS 1.3 connections, and forcing TLS 1.2 returns 200 even without a user-agent.
-- **How to apply:** In PHP/Guzzle, cap TLS at 1.2 for OLX requests (`CURLOPT_SSLVERSION => CURL_SSLVERSION_MAX_TLSv1_2` combined with `CURL_SSLVERSION_TLSv1_2`). If OLX starts returning 403 again, test TLS/HTTP versions before assuming the block is header-based.
+### OLX's block is about HTTP/2, not TLS version — correcting the 2026-09-26 note (2026-09-28)
+- **What happened:** The original note (below, struck through) attributed OLX's CloudFront 403 to
+  TLS 1.3. Re-tested directly from PHP while researching the OLX scraper (Chapter 2): raw PHP curl
+  with **only** `CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2` set (no HTTP version change) still
+  got a 403 "Request blocked" from CloudFront. Raw PHP curl with **only**
+  `CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1` set (no TLS pin at all) got 200. A plain Guzzle
+  client and Laravel's `Http` facade — used with zero special options, exactly like `AutovitClient`
+  — both got 200 immediately, because Guzzle's own default `version` request option is already
+  `1.1` (confirmed via Context7/Guzzle docs), so it never sends the HTTP/2 handshake that trips the
+  block.
+- **Lesson:** The block keys on curl's default HTTP/2 handshake, not the TLS version. The original
+  fix (forcing TLS 1.2) probably worked by coincidence — forcing a TLS version on some curl builds
+  also affects ALPN/protocol negotiation — not because TLS 1.3 itself was the trigger.
+- **How to apply:** Laravel's `Http` facade needs **no special TLS or HTTP-version options** to
+  reach OLX — `Http::withUserAgent(...)->get($url)` alone works (verified live, `OlxClient`
+  ships this way). Don't add `CURLOPT_SSLVERSION`/TLS-pinning code on the assumption it's required;
+  it isn't, and it doesn't even fix the block on its own. If OLX starts blocking again, check the
+  HTTP version being negotiated before reaching for TLS options.
+- ~~Original note: OLX rejects TLS 1.3 connections, and forcing TLS 1.2 returns 200~~ — see above,
+  this was the wrong takeaway from a real observation (something in that test did fix it, just not
+  the reason written down).
+
+### OLX silently clamps out-of-range pagination instead of erroring (2026-09-28)
+- **What happened:** While researching the OLX scraper, requesting `?page=999` on a search that
+  only had a handful of real pages returned HTTP 200 with a full page of results — not a 404, not
+  an empty results grid. Comparing ad ids showed it was byte-for-byte the same listings, same
+  order, as `?page=1`.
+- **Lesson:** OLX doesn't signal "past the last page" the way Autovit does (returning fewer results
+  than a full page). It just re-serves an earlier page. A naive "stop when the page looks empty or
+  short" loop would never stop — it would keep re-fetching and re-saving the same clamped page for
+  every remaining page number up to the configured cap.
+- **How to apply:** When paginating OLX, track the previous page's set of ad ids and compare it to
+  the current page's. If they're identical, you've been clamped back — stop. A couple of ids
+  repeating between genuinely consecutive pages is normal (pinned/promoted ads), so only an
+  *identical full set* is the stop signal, not any overlap. `ScrapeOlx` implements this.
 
 ### Autovit data lives in `__NEXT_DATA__` (2026-09-26)
 - **What happened:** The search page embeds its data as JSON, with the Apollo/GraphQL state nested as JSON strings inside it.
