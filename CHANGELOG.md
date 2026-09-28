@@ -6,6 +6,16 @@ progress in a way that's readable without digging through `git log`.
 
 ## 2026-09-28
 
+### Changed
+- Scraping frequency: twice a day → **once a day at 07:00** (morning). Each run now needs to be
+  thorough (higher page-coverage defaults) since there's no second run to catch what the first
+  missed. Updated in `CLAUDE.md`, `ROADMAP.md` Chapter 8, and the Autovit scraper plan.
+- The Autovit scraper plan no longer uses the `search[filter_float_price:to]` or
+  `search[order]=...` URL parameters — checked Autovit's actual `robots.txt` and found both match
+  `Disallow` patterns (`*_price*` and `*[order]=*`) under `User-agent: *`. Price filtering and
+  sorting now happen in PHP after fetching, not via the URL. OLX's `robots.txt` has no such
+  restriction. This was caught and fixed before any scraper code was written.
+
 ### Added
 - `CLAUDE.md` rule 10 now explicitly ends the branch workflow with `git push origin development`
   — previously implied, now written down so it's never skipped.

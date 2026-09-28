@@ -28,9 +28,19 @@ quirk already logged in `lessons.md`) and will be a separate plan once this one 
   The scraper will translate our `body_type=sedan,break` criterion into Autovit's
   `sedan`/`combi` codes — this translation table lives in the Autovit-specific code, not the
   shared criteria catalog, since OLX will likely use different codes.
-- **Sorting newest-first works** (`search[order]=created_at_first:desc`, confirmed — results came
-  back in strict descending timestamp order). This matters because the app runs twice a day and
-  should reliably catch new listings, not whatever a "relevance" algorithm ranks highest.
+- **`robots.txt` blocks two of the URL params this plan originally relied on.** I checked
+  Autovit's actual `robots.txt` (not assumed) and found, under `User-agent: *`:
+  `Disallow: *[order]=*` and `Disallow: *_price*`. Our planned `search[order]=created_at_first:desc`
+  (newest-first sort) and `search[filter_float_price:to]=7000` (price filter) both match these
+  patterns — the `_price` disallow matches because `filter_float_price` contains that substring.
+  OLX's `robots.txt` has no equivalent restriction (checked separately, for Chapter 2). Respecting
+  this isn't optional — it's the whole point of the "don't get blocked" requirement. **Fix:** drop
+  both params from the request URL. Fetch pages in the site's default (relevance) order, still
+  filtered server-side by year/mileage/engine/body-type (none of those match a disallowed
+  pattern), and do price filtering **and** sorting ourselves in PHP after parsing each page, before
+  deciding what to store. Trade-off: no more guaranteed strict newest-first fetch order from the
+  site itself — acceptable, since coverage now comes from paging thoroughly through each single
+  daily run (see below) rather than from sort order.
 - **Data available per listing in the search results themselves:** id, title, short description,
   URL, city, price + currency, year, mileage, engine capacity, horsepower, fuel type, two
   thumbnail photo URLs, seller type (private/dealer).
@@ -52,18 +62,21 @@ quirk already logged in `lessons.md`) and will be a separate plan once this one 
 1. **`config/scraping.php`** — base URL, a realistic User-Agent string, default max pages per run,
    and a delay between page requests (politeness/rate-limiting) — configurable, not hardcoded.
 2. **`app/Services/Scraping/AutovitClient.php`** — builds the query string from current
-   `SearchCriterion` values (via the existing `CriteriaCatalog`), fetches one search-results page
-   via Laravel's `Http` facade, extracts `__NEXT_DATA__` (robust regex — the naive one from
-   `lessons.md` broke on this exact page because of an extra `nonce`/`crossorigin` attribute; noting
-   the fix), walks `pageProps.urqlState` for the entry containing `advertSearch`, and returns the
-   parsed listings + pagination info for that page.
+   `SearchCriterion` values (via the existing `CriteriaCatalog`) — **excluding** price and sort
+   order, per the `robots.txt` finding above — fetches one search-results page via Laravel's
+   `Http` facade, extracts `__NEXT_DATA__` (robust regex — the naive one from `lessons.md` broke
+   on this exact page because of an extra `nonce`/`crossorigin` attribute; noting the fix), walks
+   `pageProps.urqlState` for the entry containing `advertSearch`, and returns the parsed listings +
+   pagination info for that page.
 3. **`app/Services/Scraping/AutovitListingMapper.php`** — maps one raw Autovit listing node to the
-   `Listing` model's attributes (field mapping table above).
+   `Listing` model's attributes (field mapping table above), and exposes the parsed price so the
+   command can apply `price_max` client-side.
 4. **`app/Console/Commands/ScrapeAutovit.php`** (`scrape:autovit {--pages=}`) — loops pages
-   (newest-first) up to the configured/given max, maps each listing, and
-   `Listing::updateOrCreate(['source' => ..., 'external_id' => ...], [...])` — inserts new ones,
-   updates existing ones (e.g. a price change), never duplicates. Prints a summary (created vs.
-   updated count) at the end.
+   (site's default order) up to the configured/given max, maps each listing, **discards any whose
+   price exceeds `price_max`** (client-side, since the site can't filter this for us anymore), and
+   `Listing::updateOrCreate(['source' => ..., 'external_id' => ...], [...])` for the rest — inserts
+   new ones, updates existing ones (e.g. a price change), never duplicates. Prints a summary
+   (created vs. updated vs. price-filtered-out count) at the end.
 5. **Tests (Pest)**, using a saved real (trimmed) fixture — no live network calls in tests, per
    `best-practices.md`:
    - The mapper correctly converts one real captured listing node into `Listing` attributes.
@@ -102,13 +115,18 @@ quirk already logged in `lessons.md`) and will be a separate plan once this one 
   that turns out to matter later (e.g. for the future reliability-scoring phase), the fix is
   fetching detail pages for a smaller shortlist, not every search result — a separate decision
   for later, not built now.
-- **No "stop at last-seen" optimization yet** — each run pages through up to the configured max
-  (default proposed: 10 pages / ~320 listings) newest-first and upserts everything, rather than
-  stopping exactly at the last listing seen on the previous run. Simpler for a first version;
-  `updateOrCreate` makes re-fetching harmless (idempotent), just slightly wasteful. Can optimize
-  later if 10 pages twice a day isn't enough coverage.
+- **Runs once a day (morning, 07:00 — see `CLAUDE.md`), so this run needs to be thorough**, not
+  quick. Default page cap: **25 pages (~800 listings)** per run — roughly the same total daily
+  request volume as the originally-considered "10 pages × 2 runs/day", just consolidated into one
+  run, so this isn't a bigger daily footprint on Autovit than before. The command stops early if a
+  page comes back with fewer than a full page of results (means we've reached the end of what
+  matches the server-side criteria) rather than always exhausting the full cap. No "stop at
+  last-seen" optimization — every run re-walks the same page range and upserts everything;
+  `updateOrCreate` makes this harmless (idempotent), just a bit of repeated work, which is fine at
+  once-a-day frequency.
 - Politeness: a short delay between page requests, and a realistic User-Agent, to behave
-  reasonably — not a guarantee against future blocking.
+  reasonably — not a guarantee against future blocking. `robots.txt` is now fully respected (see
+  above) rather than assumed compatible.
 
 ## How we'll verify it works
 - `php artisan test` — new unit + feature tests pass, using the recorded fixture.
@@ -119,6 +137,5 @@ quirk already logged in `lessons.md`) and will be a separate plan once this one 
   visible count check confirms the command's upsert logic works too).
 
 ## Needs from you
-1. Default page cap of **10 pages (~320 listings) per run** — fine, or do you want it higher/lower
-   to start?
-2. Nothing else blocking — the currency and body-type questions from before are resolved above.
+Nothing blocking. Page cap (25/run), schedule (once daily, 07:00), and the `robots.txt`-driven
+approach change are all decided above.
