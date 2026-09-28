@@ -7,6 +7,41 @@ progress in a way that's readable without digging through `git log`.
 ## 2026-09-28
 
 ### Added
+- **Chapter 2 complete: `scrape:olx`.** OLX's counterpart to `scrape:autovit` — fetches, filters,
+  and hard-gates OLX listings the same way, but the implementation had to differ in a few
+  genuinely new ways discovered by inspecting the live site today (not assumed from the two-day-old
+  research notes in `ROADMAP.md`):
+  - **OLX has no JSON data blob** (unlike Autovit's `__NEXT_DATA__`) — it's plain server-rendered
+    HTML. `app/Services/Scraping/OlxClient.php` parses it with `symfony/dom-crawler` +
+    `symfony/css-selector` (newly added via Composer), using stable `data-testid` attribute
+    selectors rather than the emotion-generated CSS class names, which are build artifacts that can
+    change on any deploy.
+  - **OLX silently clamps out-of-range pagination** instead of erroring or emptying — requesting a
+    page past the real last one just re-serves an earlier page. `ScrapeOlx` detects this by
+    comparing each page's set of ad ids to the previous page's: an identical set means it's been
+    clamped back, so it stops instead of looping to the page cap and re-saving the same rows
+    (verified live: a 30-page run against the real site stored 1,034 listings and stopped around
+    page ~20, matching OLX's own "peste 1.000 rezultate" count, rather than continuing to 30).
+  - **No TLS/HTTP-version workaround needed after all.** Corrected a stale note in
+    `.claude/lessons.md` (2026-09-26) that attributed an OLX CloudFront block to TLS 1.3 — retested
+    directly from PHP today and found TLS pinning alone doesn't fix it, while Laravel's `Http`
+    facade with zero special options already works, because Guzzle's own default HTTP version
+    (1.1) avoids the actual trigger (curl's default HTTP/2 handshake). `OlxClient` needs no special
+    curl/TLS code, same shape as `AutovitClient`.
+  - With `currency=EUR` requested, every OLX result comes back priced in EUR (verified across all
+    52 listings on a live page) — unlike Autovit, there's no mixed-currency problem here.
+  - `body_type`/`transmission`/`fuel_type` stay `null` on OLX-sourced listings, same documented
+    limitation as Autovit (the search filters server-side by these; per-listing values aren't in
+    the search results).
+  - 10 new tests (mapper parsing edge cases, price filtering, dedup/update, the pagination-clamp
+    stop condition, and the reliability hard-gate) — 49/49 passing project-wide. Verified live:
+    real scraped listings landed with sane values, a second run produced 0 duplicates.
+- **Chapter 6 (seller rating check) dropped**, per its own pre-written rule in `ROADMAP.md`.
+  OLX's search results were checked today: "Firma"/"Persoană fizică" only appear as sidebar filter
+  checkbox labels, never as a per-listing badge — so, combined with Chapter 1's earlier finding
+  that Autovit only exposes seller *type* (never a rating), **neither site exposes a real seller
+  rating to check**. The rule said to drop the chapter in that case, no question needed — its
+  `ROADMAP.md` entry is deleted; there's nothing left to build for it.
 - **Chapter 5 complete: the car-knowledge reliability filter — built as a hard gate, per your
   explicit decision.** A listing must pass both the existing criteria filter *and* a reliability
   check to ever be saved to `listings`; anything scoring below the threshold (default 60/100) is

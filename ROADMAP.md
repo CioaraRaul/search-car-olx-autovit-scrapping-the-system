@@ -24,31 +24,6 @@ Laravel not Node, no frontend yet).
 
 ---
 
-## Chapter 2 — OLX scraper
-**Status:** not planned yet, but the approach is decided. OLX renders listings as real HTML
-(`data-testid="l-card"` elements, confirmed live — no `__NEXT_DATA__`/JSON blob like Autovit), so
-this uses `symfony/dom-crawler` + `symfony/css-selector` (added via Composer) instead of JSON
-parsing. Reuses `App\Services\Scraping\RobotsTxtGuard` — already built and merged as part of the
-Autovit scraper, general-purpose — `RobotsTxtGuard::for('https://www.olx.ro')->isAllowed($url)` —
-rather than rebuilding robots.txt parsing. OLX's own `robots.txt` was already checked (during the
-Autovit scraper's research) and has no restriction matching this chapter's planned query params.
-Confirmed live query parameters (user-supplied, verified working):
-`https://www.olx.ro/auto-masini-moto-ambarcatiuni/autoturisme/?currency=EUR&search[filter_float_price:to]=7000&search[filter_float_year:from]=2013&search[filter_float_rulaj_pana:to]=230000&search[filter_enum_car_body][0]=sedan&search[filter_enum_car_body][1]=estate-car&search[filter_float_enginesize:to]=2000`
-— note OLX's field names differ from Autovit's (`filter_float_rulaj_pana` not `filter_float_mileage`,
-`filter_enum_car_body` not `filter_enum_body_type`, values `sedan`/`estate-car` not `sedan`/`combi`),
-and OLX has a genuine top-level `currency=EUR` parameter, unlike Autovit. Decided defaults:
-reuse `config/scraping.php` (already built, same User-Agent/delay/page-cap pattern), same
-`updateOrCreate` upsert approach into `listings`, and the same currency-comparability rule the
-Autovit scraper uses (only price-filter a listing when its currency matches the `price_currency`
-criterion — real cross-currency conversion is Chapter 3's job). TLS: re-verify the 1.2-pinning requirement from
-PHP/`Http` specifically (not assumed from the PowerShell/curl findings in `lessons.md`) — if
-still needed, use `Http::withOptions(['curl' => [CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2]])`.
-Exact CSS selectors for price/title/year/km/etc. inside each `l-card` still need discovering from
-the real page — that's implementation research done when this chapter starts, not a decision
-needing your input first.
-**Depends on:** `listings` + `search_criteria` schema (done).
-**Builds:** `scrape:olx`.
-
 ## Chapter 3 — Price history + normalized comparison currency
 **Status:** not started, decided. RON→EUR rate source: the National Bank of Romania's (BNR) free
 public daily rate feed (`https://www.bnr.ro/nbrfxrates.xml`) — no API key, no auth, one official
@@ -67,21 +42,6 @@ later.
 **Builds:** an `ingestion_runs` table (source, started_at, finished_at, pages_fetched,
 listings_new, listings_updated, errors, status) and a small trait/service any scraper command can
 wrap itself with, so unattended twice-daily runs are auditable instead of a black box.
-
-## Chapter 6 — Seller rating check
-**Status:** not independently buildable yet — folded into whichever of Chapter 2 turns out to
-expose seller data, decided as follows so no question is needed later: Autovit's search results
-already confirmed (Chapter 1's research) to expose only seller *type* (`private`/`dealer`), no
-numeric rating — so Autovit alone doesn't support a real rating check. If Chapter 2's (OLX) HTML
-research finds an actual rating/score on seller profiles, build the check then, folded into
-`App\Services\Reliability\ReliabilityScorer` (already built — see `CHANGELOG.md`) as one more
-evaluator, rather than as separate infrastructure. **If neither site exposes a real rating**, this
-chapter is dropped: delete this entry from `ROADMAP.md`, note the reason in `CHANGELOG.md`, and
-fall back to the seller-type flag (private/dealer) alone as a minor signal in the existing scorer
-instead of a hard check. No need to ask before doing this — the decision rule is already made here.
-**Depends on:** Chapter 2 (OLX) research, since Chapter 1 already answered this for Autovit
-(negatively).
-**Builds:** TBD by the above rule — either a real rating check or nothing at all.
 
 ## Chapter 7 — Gmail digest notification
 **Status:** not started.

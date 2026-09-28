@@ -28,4 +28,10 @@ return [
         'max_pages' => env('SCRAPER_AUTOVIT_MAX_PAGES', 25),
     ],
 
+    'olx' => [
+        'base_url' => 'https://www.olx.ro',
+        'search_path' => '/auto-masini-moto-ambarcatiuni/autoturisme/',
+        'max_pages' => env('SCRAPER_OLX_MAX_PAGES', 25),
+    ],
+
 ];
