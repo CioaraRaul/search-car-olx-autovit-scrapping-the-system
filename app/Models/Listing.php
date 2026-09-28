@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
     'source', 'external_id', 'title', 'price', 'currency', 'year', 'mileage_km',
     'engine_capacity_cc', 'horsepower', 'body_type', 'transmission', 'fuel_type',
     'city', 'url', 'photos', 'description', 'notified_at',
+    'reliability_score', 'reliability_flags', 'reliability_scored_at',
 ])]
 class Listing extends Model
 {
@@ -22,6 +23,8 @@ class Listing extends Model
             'source' => ListingSource::class,
             'photos' => 'array',
             'notified_at' => 'datetime',
+            'reliability_flags' => 'array',
+            'reliability_scored_at' => 'datetime',
         ];
     }
 }

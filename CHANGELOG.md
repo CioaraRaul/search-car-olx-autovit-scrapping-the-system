@@ -7,6 +7,26 @@ progress in a way that's readable without digging through `git log`.
 ## 2026-09-28
 
 ### Added
+- **Chapter 5 complete: the car-knowledge reliability filter — built as a hard gate, per your
+  explicit decision.** A listing must pass both the existing criteria filter *and* a reliability
+  check to ever be saved to `listings`; anything scoring below the threshold (default 60/100) is
+  discarded at scrape time, not stored-and-flagged.
+  - `reliability_rules` table (DB-editable, no deploy needed) seeded with three starting rules:
+    VW Group 1.6/2.0 TDI (EA189), Ford 1.6 TDCi + PowerShift, BMW N47 diesel (matched by model
+    badge, since sellers rarely write the engine code itself).
+  - Two generic statistical rules: suspiciously low mileage for a car's age, and price far below
+    the median of comparable already-saved listings (same currency, similar year — a real sample,
+    not the listing being judged).
+  - `App\Services\Reliability\ReliabilityScorer` composes three small evaluator classes; wired
+    into `scrape:autovit` right before it decides to save. A saved listing keeps its
+    `reliability_score`/`reliability_flags` so later chapters (the email digest) can show *why* a
+    car is a good pick, not just that it was one.
+  - `reliability:rescore` command for re-scoring already-saved listings after the ruleset changes.
+  - 18 new tests (scorer logic, the command, and the scrape-time rejection gate) — 39/39 passing
+    project-wide. Verified live: real scraped listings now carry a real `reliability_score`.
+  - Adapted from a plan another concurrent session had already researched and written — the
+    scoring engine design is unchanged; only *when* it's called (hard gate vs. soft annotation)
+    changed, per your explicit choice.
 - **Chapter 1 complete: `scrape:autovit`.** Fetches Autovit search results (respecting
   `robots.txt` via `RobotsTxtGuard`), maps them into `listings` via `AutovitListingMapper`, and
   upserts via `Listing::updateOrCreate` — verified against the real live site: first run stored 3

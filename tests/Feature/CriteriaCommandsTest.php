@@ -2,6 +2,7 @@
 
 use App\Models\SearchCriterion;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 
 uses(RefreshDatabase::class);
 
@@ -47,8 +48,8 @@ test('criteria:set rejects a non-numeric value for an int parameter', function (
 test('criteria:help lists every catalog parameter including unset ones', function () {
     $this->artisan('criteria:set', ['name' => 'price_max', 'value' => '7000'])->assertExitCode(0);
 
-    Illuminate\Support\Facades\Artisan::call('criteria:help');
-    $output = Illuminate\Support\Facades\Artisan::output();
+    Artisan::call('criteria:help');
+    $output = Artisan::output();
 
     expect($output)
         ->toContain('price_max')

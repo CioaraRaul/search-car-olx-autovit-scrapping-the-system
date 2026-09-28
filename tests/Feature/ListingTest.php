@@ -2,6 +2,7 @@
 
 use App\Enums\ListingSource;
 use App\Models\Listing;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
@@ -22,7 +23,7 @@ function makeListing(array $overrides = []): Listing
 test('source and external_id together must be unique', function () {
     makeListing();
 
-    expect(fn () => makeListing())->toThrow(\Illuminate\Database\QueryException::class);
+    expect(fn () => makeListing())->toThrow(QueryException::class);
 });
 
 test('the same external_id from a different source is allowed', function () {

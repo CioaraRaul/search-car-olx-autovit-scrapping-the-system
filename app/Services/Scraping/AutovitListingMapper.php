@@ -3,6 +3,7 @@
 namespace App\Services\Scraping;
 
 use App\Enums\ListingSource;
+use Illuminate\Support\Collection;
 
 /**
  * Maps one raw "node" object from Autovit's advertSearch GraphQL payload
@@ -44,9 +45,9 @@ class AutovitListingMapper
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<string, array<string, mixed>>  $parameters
+     * @param  Collection<string, array<string, mixed>>  $parameters
      */
-    private function intParameter(\Illuminate\Support\Collection $parameters, string $key): ?int
+    private function intParameter(Collection $parameters, string $key): ?int
     {
         $value = $parameters->get($key)['value'] ?? null;
 
