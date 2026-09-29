@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'engine_capacity_cc', 'horsepower', 'body_type', 'transmission', 'fuel_type',
     'city', 'url', 'photos', 'description', 'notified_at',
     'reliability_score', 'reliability_flags', 'reliability_scored_at',
+    'is_damaged', 'fuel_consumption_l_100km',
 ])]
 class Listing extends Model
 {
@@ -27,6 +28,8 @@ class Listing extends Model
             'reliability_flags' => 'array',
             'reliability_scored_at' => 'datetime',
             'price_eur' => 'decimal:2',
+            'is_damaged' => 'boolean',
+            'fuel_consumption_l_100km' => 'decimal:1',
         ];
     }
 

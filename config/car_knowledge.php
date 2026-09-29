@@ -31,4 +31,18 @@ return [
         'penalty' => (int) env('CAR_KNOWLEDGE_PRICE_PENALTY', 20),
     ],
 
+    // Autovit-only (see AutovitDetailFetcher): neither field is available on
+    // OLX, so OLX listings never trigger these two rules. Both penalties
+    // default to guaranteeing rejection on their own, since "no damaged
+    // cars"/"high consumption is bad" are absolute exclusions, not a soft
+    // scoring nudge.
+    'damaged_vehicle' => [
+        'penalty' => (int) env('CAR_KNOWLEDGE_DAMAGED_PENALTY', 100),
+    ],
+
+    'high_fuel_consumption' => [
+        'threshold_l_100km' => (float) env('CAR_KNOWLEDGE_HIGH_FUEL_CONSUMPTION_THRESHOLD', 8.0),
+        'penalty' => (int) env('CAR_KNOWLEDGE_HIGH_FUEL_CONSUMPTION_PENALTY', 100),
+    ],
+
 ];
