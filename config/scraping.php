@@ -26,7 +26,6 @@ return [
         'enabled' => env('SCRAPE_AUTOVIT_ENABLED', true),
         'base_url' => 'https://www.autovit.ro',
         'search_path' => '/autoturisme',
-        'max_pages' => env('SCRAPER_AUTOVIT_MAX_PAGES', 25),
 
         // Safeguards on AutovitDetailFetcher, which costs one extra request per
         // listing that survives the price filter (see ScrapeAutovit).
@@ -39,7 +38,13 @@ return [
         'enabled' => env('SCRAPE_OLX_ENABLED', true),
         'base_url' => 'https://www.olx.ro',
         'search_path' => '/auto-masini-moto-ambarcatiuni/autoturisme/',
-        'max_pages' => env('SCRAPER_OLX_MAX_PAGES', 25),
+
+        // Safeguards on OlxDetailFetcher, which costs one extra request per
+        // listing that survives the price filter and isn't already resolved by
+        // its title or a prior check (see ScrapeOlx).
+        'detail_fetch_delay_min_ms' => env('SCRAPER_OLX_DETAIL_DELAY_MIN_MS', 3000),
+        'detail_fetch_delay_max_ms' => env('SCRAPER_OLX_DETAIL_DELAY_MAX_MS', 8000),
+        'detail_fetch_daily_cap' => env('SCRAPER_OLX_DETAIL_DAILY_CAP', 100),
     ],
 
     /*

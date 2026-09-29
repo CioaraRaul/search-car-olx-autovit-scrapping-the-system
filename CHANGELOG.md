@@ -7,6 +7,46 @@ progress in a way that's readable without digging through `git log`.
 ## 2026-09-29
 
 ### Added
+- **Damage/fuel-consumption checking for OLX too**, at the user's request ("every spec... applies
+  even for olx or autovit, only if i specify just for one"). OLX has no structured field for
+  either (unlike Autovit's `__NEXT_DATA__`), so this is best-effort free-text keyword detection
+  instead of reliable structured data:
+  - **`App\Services\Scraping\OlxDetailFetcher`** (new, mirrors `AutovitDetailFetcher`) reads an
+    ad's own page description and looks for damage/consumption mentions. Researched real OLX ad
+    pages first: found a listing whose title alone said *"Avariat Lovit Spate"* (damaged, hit
+    rear) and a dealer ad with a full copy-pasted spec block (*"Consumul de combustibil - urban
+    5.8 / extra-urban 4.3 / mixt 4.9 l/100km"* — the "mixt"/combined figure is actually better than
+    what Autovit gives directly, which only has urban/extra-urban separately).
+  - **Negation-aware damage detection**: naive substring matching on "accident" would wrongly flag
+    *"fără accident"* (no accident) as damaged. Fixed by stripping a list of known negation
+    phrases (`fara/fără accident`, `neaccidentat(a)`, `neavariat(a)`, etc.) out of the text before
+    checking for damage phrases (`avariat(a)`, `accidentat(a)`, `lovit(a)`, `daune majore`) in
+    what's left. Returns `null` (unknown), not `false` (confirmed clean), when a description
+    simply doesn't mention accident history at all — most don't.
+  - **Checks the listing's title first, for free** — a self-disclosed "Avariat" in the title
+    (like the real example found) needs no HTTP request at all, since the outcome (reject) is
+    already certain.
+  - Same four safeguards `ScrapeAutovit` got earlier today, mirrored for `ScrapeOlx`: random 3–8s
+    delay, a daily cap, skipping already-checked listings (reuses the existing generic
+    `detail_checked_at` column), and stopping immediately on a 403/429.
+  - No evaluator changes needed — `DamagedVehicleEvaluator`/`HighFuelConsumptionEvaluator` already
+    just read `is_damaged`/`fuel_consumption_l_100km` regardless of source; only OLX needed to
+    start populating them.
+  - 13 new tests: `OlxDetailFetcherTest` (damage/negation/consumption parsing, plus a regression
+    test for a `<style>`-tag text-extraction bug hit during research) and `ScrapeOlxCommandTest`
+    (damage/consumption rejection, daily cap, reuse, immediate-stop-on-403, non-403/429 still
+    failing loudly) — plus fixes to 2 pre-existing `ScrapeOlxCommandTest` tests that predated this
+    feature and didn't fake the new detail-page requests (one was silently hitting the real OLX
+    site and 404ing).
+
+### Changed
+- **Removed the page-count cap on both scrapers**, at the user's request. `scrape:autovit`/
+  `scrape:olx` used to stop at a fixed `max_pages` config default (25) even if more real pages
+  existed; now they scan every page that actually exists, stopping only on the real end-of-results
+  signal each site already provides (Autovit: a short last page; OLX: the clamped-repeat page it
+  was already detecting). The `--pages` option still works to cap a run manually (used throughout
+  the test suite and for quick manual checks) — only the *default*, uncapped behavior changed.
+
 - **Safeguards on the Autovit detail-page fetch**, at the user's request after the
   damage/fuel-consumption filter's own changelog entry flagged the added load (roughly 32x more
   Autovit requests per run — one per listing that survives the price filter, vs. one per ~32
