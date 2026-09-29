@@ -6,6 +6,37 @@ progress in a way that's readable without digging through `git log`.
 
 ## 2026-09-29
 
+### Added
+- **Reject damaged cars and cars with high fuel consumption (Autovit only).** Triggered by a real
+  listing report (a Kia Optima marked "Avariata: Da" — damaged/accident history — that had still
+  passed the reliability filter). Neither field exists in search-results data; both are read from
+  each ad's own page, which search results don't include at all.
+  - New `App\Services\Scraping\AutovitDetailFetcher` fetches an ad's own page (through
+    `RobotsTxtGuard`, same as the search page) and reads `damaged` (Da/Nu) and
+    `urban_consumption`/`extra_urban_consumption` (averaged into one L/100km figure) from
+    `__NEXT_DATA__.props.pageProps.advert.details`.
+  - `ScrapeAutovit` calls it for every listing that survives the price filter (so a listing
+    already out on price never costs an extra request), before reliability scoring.
+  - Two new reliability rules, `DamagedVehicleEvaluator` and `HighFuelConsumptionEvaluator`
+    (threshold 8.0 l/100km, configurable), each with a full-reject penalty (100) — "no damaged
+    cars"/"high consumption is bad" are absolute exclusions, not a soft scoring nudge, matching how
+    a known-problem engine already works.
+  - New nullable `listings.is_damaged`/`listings.fuel_consumption_l_100km` columns.
+  - **OLX has neither field, checked live — not implemented there.** Both new fields stay `null`
+    for OLX listings, and neither rule fires on `null`, so OLX scoring is unaffected. Only Autovit
+    listings are checked.
+  - **Existing already-saved listings aren't retroactively enriched** — `reliability:rescore`
+    re-scores stored attributes but doesn't re-fetch each ad's page; re-checking ~1,000 existing
+    listings would mean ~1,000 extra requests in one burst, deliberately not done as part of this
+    change. Only applies to new scrapes going forward.
+  - Verified live: `AutovitDetailFetcher` correctly read `damaged: true`,
+    `fuelConsumptionL100km: 4.85` off the real Kia Optima page that prompted this, and the
+    reliability scorer now drops it to a score of 0 (previously 80, since only the unrelated
+    below-market-price rule had fired on it).
+  - Roughly 32x more Autovit HTTP requests per run (one request per listing that survives the
+    price filter, vs. one request per ~32 listings for search results) — worth watching after a
+    full daily run, not just the 1-page manual check done here.
+
 ### Changed
 - **Scheduler: 3 direct Windows tasks instead of an every-minute poller.** Previously a single
   Windows Task Scheduler entry ran `php artisan schedule:run` every 60 seconds, letting Laravel's

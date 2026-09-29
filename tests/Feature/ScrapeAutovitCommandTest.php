@@ -29,7 +29,11 @@ function fakeAutovitSearchPage(string $fixture): void
 {
     Http::fake([
         'https://www.autovit.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
-        'https://www.autovit.ro/autoturisme*' => Http::response(
+        // Registered before the broader search-page pattern below, since Http::fake()
+        // matches in registration order — every surviving listing's detail-page fetch
+        // (AutovitDetailFetcher) needs its own response, not the search page's.
+        'https://www.autovit.ro/autoturisme/anunt/*' => Http::response(autovitAdPageHtml([]), 200),
+        'https://www.autovit.ro/autoturisme?*' => Http::response(
             file_get_contents(base_path("tests/Fixtures/{$fixture}")),
             200,
         ),
@@ -53,7 +57,8 @@ test('running it again does not duplicate rows, and updates a changed price', fu
     // consumes the next response in order, matching two real, separate runs.
     Http::fake([
         'https://www.autovit.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
-        'https://www.autovit.ro/autoturisme*' => Http::sequence()
+        'https://www.autovit.ro/autoturisme/anunt/*' => Http::response(autovitAdPageHtml([]), 200),
+        'https://www.autovit.ro/autoturisme?*' => Http::sequence()
             ->push(file_get_contents(base_path('tests/Fixtures/autovit_search_page.html')), 200)
             ->push(file_get_contents(base_path('tests/Fixtures/autovit_search_page_price_changed.html')), 200),
     ]);
@@ -93,6 +98,74 @@ test('saves a listing that passes the reliability check, with its score attached
         ->and($listing->reliability_score)->toBe(100) // no rules seeded in this test, nothing to flag
         ->and($listing->reliability_flags)->toBe([])
         ->and($listing->reliability_scored_at)->not->toBeNull();
+});
+
+test('rejects and never saves a listing marked as damaged on its own ad page', function () {
+    Http::fake([
+        'https://www.autovit.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        'https://www.autovit.ro/autoturisme/anunt/9000000001.html' => Http::response(
+            autovitAdPageHtml([['key' => 'damaged', 'value' => 'Da']]),
+            200,
+        ),
+        'https://www.autovit.ro/autoturisme/anunt/*' => Http::response(autovitAdPageHtml([]), 200),
+        'https://www.autovit.ro/autoturisme?*' => Http::response(
+            file_get_contents(base_path('tests/Fixtures/autovit_search_page.html')),
+            200,
+        ),
+    ]);
+
+    $this->artisan('scrape:autovit', ['--pages' => 1])->assertExitCode(0);
+
+    expect(Listing::where('external_id', '9000000001')->exists())->toBeFalse()
+        ->and(Listing::where('external_id', '9000000002')->exists())->toBeTrue(); // unaffected
+});
+
+test('rejects and never saves a listing with fuel consumption above the threshold', function () {
+    Http::fake([
+        'https://www.autovit.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        'https://www.autovit.ro/autoturisme/anunt/9000000001.html' => Http::response(
+            autovitAdPageHtml([
+                ['key' => 'urban_consumption', 'value' => '12.0 l/100km'],
+                ['key' => 'extra_urban_consumption', 'value' => '10.0 l/100km'],
+            ]),
+            200,
+        ),
+        'https://www.autovit.ro/autoturisme/anunt/*' => Http::response(autovitAdPageHtml([]), 200),
+        'https://www.autovit.ro/autoturisme?*' => Http::response(
+            file_get_contents(base_path('tests/Fixtures/autovit_search_page.html')),
+            200,
+        ),
+    ]);
+
+    $this->artisan('scrape:autovit', ['--pages' => 1])->assertExitCode(0);
+
+    expect(Listing::where('external_id', '9000000001')->exists())->toBeFalse();
+});
+
+test('saves a clean listing with is_damaged=false and its fuel consumption', function () {
+    Http::fake([
+        'https://www.autovit.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        'https://www.autovit.ro/autoturisme/anunt/9000000001.html' => Http::response(
+            autovitAdPageHtml([
+                ['key' => 'damaged', 'value' => 'Nu'],
+                ['key' => 'urban_consumption', 'value' => '5.6 l/100km'],
+                ['key' => 'extra_urban_consumption', 'value' => '4.1 l/100km'],
+            ]),
+            200,
+        ),
+        'https://www.autovit.ro/autoturisme/anunt/*' => Http::response(autovitAdPageHtml([]), 200),
+        'https://www.autovit.ro/autoturisme?*' => Http::response(
+            file_get_contents(base_path('tests/Fixtures/autovit_search_page.html')),
+            200,
+        ),
+    ]);
+
+    $this->artisan('scrape:autovit', ['--pages' => 1])->assertExitCode(0);
+
+    $listing = Listing::where('external_id', '9000000001')->first();
+
+    expect($listing->is_damaged)->toBeFalse()
+        ->and((float) $listing->fuel_consumption_l_100km)->toBe(4.9);
 });
 
 test('builds the request URL without price or order params, per robots.txt', function () {

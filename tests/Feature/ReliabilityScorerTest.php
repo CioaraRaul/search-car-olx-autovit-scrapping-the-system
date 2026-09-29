@@ -134,6 +134,56 @@ test('excludes listings in a different currency from the comparison', function (
     expect($score->flags)->toBeEmpty();
 });
 
+// --- Damaged vehicle (Autovit-only; is_damaged is null on OLX listings) ---
+
+test('rejects a listing marked as damaged', function () {
+    $score = (new ReliabilityScorer)->score([
+        'title' => 'Cheap car', 'description' => '', 'is_damaged' => true,
+    ]);
+
+    expect($score->flags)->toHaveCount(1)
+        ->and($score->flags[0]->rule)->toBe('damaged-vehicle')
+        ->and($score->score)->toBeLessThan((int) config('car_knowledge.reject_below_score'));
+});
+
+test('does not flag a listing explicitly marked as not damaged', function () {
+    $score = (new ReliabilityScorer)->score(['title' => 'Clean car', 'description' => '', 'is_damaged' => false]);
+
+    expect($score->flags)->toBeEmpty();
+});
+
+test('does not flag a listing where damage status is unknown (e.g. OLX)', function () {
+    $score = (new ReliabilityScorer)->score(['title' => 'OLX car', 'description' => '', 'is_damaged' => null]);
+
+    expect($score->flags)->toBeEmpty();
+});
+
+// --- High fuel consumption (Autovit-only; null on OLX listings) ---
+
+test('rejects a listing with fuel consumption above the threshold', function () {
+    $score = (new ReliabilityScorer)->score([
+        'title' => 'Thirsty car', 'description' => '', 'fuel_consumption_l_100km' => 9.5,
+    ]);
+
+    expect($score->flags)->toHaveCount(1)
+        ->and($score->flags[0]->rule)->toBe('high-fuel-consumption')
+        ->and($score->score)->toBeLessThan((int) config('car_knowledge.reject_below_score'));
+});
+
+test('does not flag consumption at or below the threshold', function () {
+    $score = (new ReliabilityScorer)->score([
+        'title' => 'Efficient car', 'description' => '', 'fuel_consumption_l_100km' => 8.0,
+    ]);
+
+    expect($score->flags)->toBeEmpty();
+});
+
+test('does not flag fuel consumption when it is unknown (e.g. OLX)', function () {
+    $score = (new ReliabilityScorer)->score(['title' => 'OLX car', 'description' => '', 'fuel_consumption_l_100km' => null]);
+
+    expect($score->flags)->toBeEmpty();
+});
+
 // --- Scoring composition ---
 
 test('sums multiple penalties and floors the score at 0', function () {
