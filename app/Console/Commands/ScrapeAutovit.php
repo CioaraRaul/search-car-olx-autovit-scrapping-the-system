@@ -75,6 +75,7 @@ class ScrapeAutovit extends Command
                 if ($existing !== null && $existing->detail_checked_at !== null) {
                     $attributes['is_damaged'] = $existing->is_damaged;
                     $attributes['fuel_consumption_l_100km'] = $existing->fuel_consumption_l_100km;
+                    $attributes['seller_registered_year'] = $existing->seller_registered_year;
                     $attributes['detail_checked_at'] = $existing->detail_checked_at;
                     $detailReused++;
                 } elseif ((int) Cache::get($detailFetchCountKey, 0) >= $detailFetchDailyCap) {
@@ -82,12 +83,14 @@ class ScrapeAutovit extends Command
                     // run still tries this listing instead of skipping it forever.
                     $attributes['is_damaged'] = null;
                     $attributes['fuel_consumption_l_100km'] = null;
+                    $attributes['seller_registered_year'] = null;
                     $detailSkippedByCap++;
                 } else {
                     try {
                         $details = $detailFetcher->fetch($attributes['url']);
                         $attributes['is_damaged'] = $details['damaged'];
                         $attributes['fuel_consumption_l_100km'] = $details['fuelConsumptionL100km'];
+                        $attributes['seller_registered_year'] = $details['sellerRegisteredYear'];
                         $attributes['detail_checked_at'] = now();
 
                         Cache::put(

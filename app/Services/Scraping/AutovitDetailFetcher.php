@@ -6,20 +6,20 @@ use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 /**
- * Fetches one Autovit ad's own page and reads the two condition fields that
- * aren't present in search results at all: whether it's marked as damaged,
- * and its fuel consumption.
+ * Fetches one Autovit ad's own page and reads fields that aren't present in
+ * search results at all: whether it's marked as damaged, its fuel
+ * consumption, and the year its seller's account was registered.
  *
  * Unlike the search-results page (parsed by AutovitClient via a GraphQL
  * cache under __NEXT_DATA__.props.pageProps.urqlState), an ad's own page
- * embeds its data directly at __NEXT_DATA__.props.pageProps.advert.details —
- * a flat list of {key, label, value, group, ...} objects covering every
- * spec shown on the page.
+ * embeds its data directly at __NEXT_DATA__.props.pageProps.advert — a
+ * `details` array of {key, label, value, group, ...} objects covering every
+ * spec shown on the page, plus a `seller` object with its own badges.
  */
 class AutovitDetailFetcher
 {
     /**
-     * @return array{damaged: ?bool, fuelConsumptionL100km: ?float}
+     * @return array{damaged: ?bool, fuelConsumptionL100km: ?float, sellerRegisteredYear: ?int}
      */
     public function fetch(string $url): array
     {
@@ -35,18 +35,20 @@ class AutovitDetailFetcher
 
         $response->throw();
 
-        $details = $this->extractDetails($response->body());
+        $advert = $this->extractAdvert($response->body());
+        $details = $advert['details'] ?? [];
 
         return [
             'damaged' => $this->parseDamaged($details),
             'fuelConsumptionL100km' => $this->parseFuelConsumption($details),
+            'sellerRegisteredYear' => $this->parseSellerRegisteredYear($advert['seller'] ?? []),
         ];
     }
 
     /**
-     * @return array<int, array<string, mixed>>
+     * @return array<string, mixed>
      */
-    private function extractDetails(string $html): array
+    private function extractAdvert(string $html): array
     {
         if (! preg_match('/<script id="__NEXT_DATA__"[^>]*>(.*?)<\/script>/s', $html, $matches)) {
             throw new RuntimeException('Could not find __NEXT_DATA__ in the Autovit ad response — the page structure may have changed.');
@@ -54,7 +56,25 @@ class AutovitDetailFetcher
 
         $nextData = json_decode($matches[1], associative: true, flags: JSON_THROW_ON_ERROR);
 
-        return $nextData['props']['pageProps']['advert']['details'] ?? [];
+        return $nextData['props']['pageProps']['advert'] ?? [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $seller
+     */
+    private function parseSellerRegisteredYear(array $seller): ?int
+    {
+        foreach ($seller['featuresBadges'] ?? [] as $badge) {
+            if (($badge['code'] ?? null) !== 'registration-date') {
+                continue;
+            }
+
+            if (preg_match('/\b((?:19|20)\d{2})\b/', $badge['label'] ?? '', $matches)) {
+                return (int) $matches[1];
+            }
+        }
+
+        return null;
     }
 
     /**

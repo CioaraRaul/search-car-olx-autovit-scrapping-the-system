@@ -46,7 +46,7 @@ class OlxDetailFetcher
     ];
 
     /**
-     * @return array{damaged: ?bool, fuelConsumptionL100km: ?float}
+     * @return array{damaged: ?bool, fuelConsumptionL100km: ?float, sellerRegisteredYear: ?int}
      */
     public function fetch(string $url): array
     {
@@ -62,11 +62,13 @@ class OlxDetailFetcher
 
         $response->throw();
 
-        $description = $this->extractDescription($response->body());
+        $html = $response->body();
+        $description = $this->extractDescription($html);
 
         return [
             'damaged' => $this->detectDamaged($description),
             'fuelConsumptionL100km' => $this->parseFuelConsumption($description),
+            'sellerRegisteredYear' => $this->parseSellerRegisteredYear($this->extractMemberSince($html)),
         ];
     }
 
@@ -113,6 +115,25 @@ class OlxDetailFetcher
         });
 
         return trim($descriptionNode->text('', true));
+    }
+
+    /**
+     * Renders as e.g. "Pe OLX din martie 2026" (Romanian month name + year).
+     */
+    private function extractMemberSince(string $html): string
+    {
+        $node = (new Crawler($html))->filter('[data-testid="member-since"]');
+
+        return $node->count() > 0 ? trim($node->text('', true)) : '';
+    }
+
+    private function parseSellerRegisteredYear(string $memberSinceText): ?int
+    {
+        if (! preg_match('/\b((?:19|20)\d{2})\b/', $memberSinceText, $matches)) {
+            return null;
+        }
+
+        return (int) $matches[1];
     }
 
     /**

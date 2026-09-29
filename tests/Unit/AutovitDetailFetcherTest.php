@@ -5,18 +5,21 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 /**
- * Builds a minimal Autovit ad page around a given `details` array, matching
- * the real shape found at __NEXT_DATA__.props.pageProps.advert.details.
+ * Builds a minimal Autovit ad page around a given `details` array and an
+ * optional `seller` array, matching the real shape found at
+ * __NEXT_DATA__.props.pageProps.advert.{details,seller}.
  *
  * @param  array<int, array<string, mixed>>  $details
+ * @param  array<string, mixed>  $seller
  */
-function autovitAdPageHtml(array $details): string
+function autovitAdPageHtml(array $details, array $seller = []): string
 {
     $nextData = json_encode([
         'props' => [
             'pageProps' => [
                 'advert' => [
                     'details' => $details,
+                    'seller' => $seller,
                 ],
             ],
         ],
@@ -27,10 +30,10 @@ function autovitAdPageHtml(array $details): string
         HTML;
 }
 
-function fakeAutovitAdPage(string $url, array $details): void
+function fakeAutovitAdPage(string $url, array $details, array $seller = []): void
 {
     Http::fake([
-        $url => Http::response(autovitAdPageHtml($details), 200),
+        $url => Http::response(autovitAdPageHtml($details, $seller), 200),
     ]);
 }
 
@@ -103,4 +106,31 @@ test('fuelConsumptionL100km is null when neither figure is present', function ()
     $result = (new AutovitDetailFetcher)->fetch($url);
 
     expect($result['fuelConsumptionL100km'])->toBeNull();
+});
+
+test('reads the seller registration year from the registration-date badge', function () {
+    $url = 'https://www.autovit.ro/autoturisme/anunt/new-seller.html';
+    fakeAutovitAdPage($url, [], seller: [
+        'featuresBadges' => [
+            ['code' => 'private-seller', 'label' => 'Persoana fizica'],
+            ['code' => 'registration-date', 'label' => 'Vânzător pe Autovit.ro din 2025'],
+        ],
+    ]);
+
+    $result = (new AutovitDetailFetcher)->fetch($url);
+
+    expect($result['sellerRegisteredYear'])->toBe(2025);
+});
+
+test('sellerRegisteredYear is null when the badge is absent', function () {
+    $url = 'https://www.autovit.ro/autoturisme/anunt/no-badge.html';
+    fakeAutovitAdPage($url, [], seller: [
+        'featuresBadges' => [
+            ['code' => 'private-seller', 'label' => 'Persoana fizica'],
+        ],
+    ]);
+
+    $result = (new AutovitDetailFetcher)->fetch($url);
+
+    expect($result['sellerRegisteredYear'])->toBeNull();
 });

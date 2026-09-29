@@ -7,6 +7,7 @@ use App\Services\Reliability\Rules\DamagedVehicleEvaluator;
 use App\Services\Reliability\Rules\HighFuelConsumptionEvaluator;
 use App\Services\Reliability\Rules\KnownIssueEvaluator;
 use App\Services\Reliability\Rules\LowMileageEvaluator;
+use App\Services\Reliability\Rules\NewSellerAccountEvaluator;
 use App\Services\Reliability\Rules\ReliabilityRuleEvaluator;
 
 class ReliabilityScorer
@@ -22,6 +23,7 @@ class ReliabilityScorer
             new BelowMarketPriceEvaluator,
             new DamagedVehicleEvaluator,
             new HighFuelConsumptionEvaluator,
+            new NewSellerAccountEvaluator,
         ];
     }
 

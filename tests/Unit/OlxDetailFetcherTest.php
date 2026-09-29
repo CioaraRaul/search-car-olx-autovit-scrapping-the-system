@@ -7,21 +7,23 @@ use Illuminate\Support\Facades\Http;
 /**
  * Builds a minimal OLX ad page with the given description text inside
  * [data-testid="ad_description"], optionally with an embedded <style> tag
- * (emotion CSS-in-JS does this on the real site) to prove it gets stripped.
+ * (emotion CSS-in-JS does this on the real site) to prove it gets stripped,
+ * and an optional "Pe OLX din <date>" member-since string.
  */
-function olxAdPageHtml(string $description, bool $withEmbeddedStyle = false): string
+function olxAdPageHtml(string $description, bool $withEmbeddedStyle = false, string $memberSince = ''): string
 {
     $style = $withEmbeddedStyle ? '<style>.css-4upmi{text-transform:uppercase}</style>' : '';
+    $memberSinceHtml = $memberSince !== '' ? "<p data-testid=\"member-since\">{$memberSince}</p>" : '';
 
     return <<<HTML
-        <html><body><div data-testid="ad_description">{$style}<div>{$description}</div></div></body></html>
+        <html><body><div data-testid="ad_description">{$style}<div>{$description}</div></div>{$memberSinceHtml}</body></html>
         HTML;
 }
 
-function fakeOlxAdPage(string $url, string $description, bool $withEmbeddedStyle = false): void
+function fakeOlxAdPage(string $url, string $description, bool $withEmbeddedStyle = false, string $memberSince = ''): void
 {
     Http::fake([
-        $url => Http::response(olxAdPageHtml($description, $withEmbeddedStyle), 200),
+        $url => Http::response(olxAdPageHtml($description, $withEmbeddedStyle, $memberSince), 200),
     ]);
 }
 
@@ -91,6 +93,24 @@ test('fuelConsumptionL100km is null when the description says nothing about cons
     $result = (new OlxDetailFetcher)->fetch($url);
 
     expect($result['fuelConsumptionL100km'])->toBeNull();
+});
+
+test('reads the seller registration year from "Pe OLX din <month> <year>"', function () {
+    $url = 'https://www.olx.ro/d/oferta/new-seller.html';
+    fakeOlxAdPage($url, 'Masina intretinuta.', memberSince: 'Pe OLX din martie 2026');
+
+    $result = (new OlxDetailFetcher)->fetch($url);
+
+    expect($result['sellerRegisteredYear'])->toBe(2026);
+});
+
+test('sellerRegisteredYear is null when member-since is absent', function () {
+    $url = 'https://www.olx.ro/d/oferta/no-member-since.html';
+    fakeOlxAdPage($url, 'Masina intretinuta.');
+
+    $result = (new OlxDetailFetcher)->fetch($url);
+
+    expect($result['sellerRegisteredYear'])->toBeNull();
 });
 
 // --- detectDamaged() directly (used on a title, without any HTTP request) ---

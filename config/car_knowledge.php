@@ -31,11 +31,11 @@ return [
         'penalty' => (int) env('CAR_KNOWLEDGE_PRICE_PENALTY', 20),
     ],
 
-    // Autovit-only (see AutovitDetailFetcher): neither field is available on
-    // OLX, so OLX listings never trigger these two rules. Both penalties
-    // default to guaranteeing rejection on their own, since "no damaged
-    // cars"/"high consumption is bad" are absolute exclusions, not a soft
-    // scoring nudge.
+    // Populated by AutovitDetailFetcher (structured field) and OlxDetailFetcher
+    // (best-effort keyword detection in free text) — see each class for how
+    // reliable the source data actually is per site. Both penalties default to
+    // guaranteeing rejection on their own, since "no damaged cars"/"high
+    // consumption is bad" are absolute exclusions, not a soft scoring nudge.
     'damaged_vehicle' => [
         'penalty' => (int) env('CAR_KNOWLEDGE_DAMAGED_PENALTY', 100),
     ],
@@ -43,6 +43,14 @@ return [
     'high_fuel_consumption' => [
         'threshold_l_100km' => (float) env('CAR_KNOWLEDGE_HIGH_FUEL_CONSUMPTION_THRESHOLD', 8.0),
         'penalty' => (int) env('CAR_KNOWLEDGE_HIGH_FUEL_CONSUMPTION_PENALTY', 100),
+    ],
+
+    // A statistical suspicion signal, not proof of a scam — a moderate penalty
+    // (unlike the two absolute-exclusion rules above) so it stacks with other
+    // flags toward rejection rather than auto-rejecting a genuine first-time
+    // seller on its own.
+    'new_seller_account' => [
+        'penalty' => (int) env('CAR_KNOWLEDGE_NEW_SELLER_ACCOUNT_PENALTY', 20),
     ],
 
 ];
