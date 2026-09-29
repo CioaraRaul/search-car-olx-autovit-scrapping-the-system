@@ -28,7 +28,10 @@ class ScrapeAutovit extends Command
         $criteria = SearchCriterion::query()->pluck('value', 'key')->all();
         $priceMax = isset($criteria['price_max']) ? (int) $criteria['price_max'] : null;
         $priceCurrency = $criteria['price_currency'] ?? null;
-        $maxPages = (int) ($this->option('pages') ?? config('scraping.autovit.max_pages'));
+        // No default page cap: --pages limits a run explicitly (e.g. for a quick manual
+        // check); otherwise this scans every page Autovit actually has, stopping only
+        // when a page comes back short (the real last page, detected below).
+        $maxPages = $this->option('pages') !== null ? (int) $this->option('pages') : null;
         $rejectBelowScore = (int) config('car_knowledge.reject_below_score');
 
         $created = 0;
@@ -42,7 +45,7 @@ class ScrapeAutovit extends Command
         $detailFetchCountKey = 'autovit:detail-fetch-count:'.now()->toDateString();
         $detailFetchDailyCap = (int) config('scraping.autovit.detail_fetch_daily_cap');
 
-        for ($page = 1; $page <= $maxPages; $page++) {
+        for ($page = 1; $maxPages === null || $page <= $maxPages; $page++) {
             $result = $client->fetchPage($criteria, $page);
 
             foreach ($result['listings'] as $node) {
