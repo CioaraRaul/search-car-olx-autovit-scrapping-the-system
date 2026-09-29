@@ -4,6 +4,39 @@ Every implemented change gets an entry here, in plain language — what changed 
 separate from git commit messages: commits describe a diff, this describes the project's
 progress in a way that's readable without digging through `git log`.
 
+## 2026-09-29
+
+### Added
+- **Chapter 9 complete: resilience — backoff, circuit breaker, kill switches.** Four small,
+  standalone services under `app/Services/Scraping/`, ready for `ScrapeAutovit`/`ScrapeOlx` to
+  adopt as a follow-up (same "build standalone, wire in later" shape as Chapter 4's
+  `IngestionRunTracker`):
+  - `ScraperKillSwitch` — reads a per-source `enabled` flag from `config/scraping.php`
+    (`SCRAPE_AUTOVIT_ENABLED`/`SCRAPE_OLX_ENABLED` in `.env`), defaulting to `true` so a missing or
+    typo'd config key fails open (keeps scraping) rather than silently going dark.
+  - `ScraperBackoffPolicy` — exponential-backoff math for retrying a failed HTTP request (doubling
+    delay per attempt, capped, plus up to 20% jitter so retries don't all land on the same
+    instant), and a `shouldRetry()` check that says yes for 429/403/5xx and no for anything else
+    (e.g. 404, which retrying can't fix). Designed to plug straight into Laravel's
+    `Http::retry($policy->maxAttempts(), fn ($a) => $policy->sleepMilliseconds($a))`.
+  - `ScraperCircuitBreaker` — trips after `SCRAPER_CIRCUIT_BREAKER_THRESHOLD` (default 3)
+    consecutive failures and stays tripped for `SCRAPER_CIRCUIT_BREAKER_COOLDOWN_MINUTES` (default
+    60), so a run stops burning its page budget against a site that's clearly blocking it. State
+    lives in the app's cache (`CACHE_STORE=database`, i.e. SQLite), not in memory, because each
+    scraper run is a fresh daily-cron process (Chapter 8) with no long-lived process to hold state
+    in.
+  - `ZeroResultsAlert` — logs a `critical`-level message when a scrape fetched at least one page
+    successfully (HTTP 200) but parsed zero listings, which usually means a site's HTML/JSON
+    structure changed rather than there being genuinely nothing to find. Just logs for now — no
+    email, since Chapter 7's digest already has its own trigger (unnotified listings) and this
+    chapter shouldn't invent a second notification path.
+  - New `config/scraping.php` keys: `autovit.enabled`, `olx.enabled`, and a `resilience` block
+    (`max_consecutive_failures`, `cooldown_minutes`, `backoff.{base_ms,max_ms,max_attempts}`), all
+    `env()`-backed with defaults so the app behaves the same as before if none of the new `.env`
+    keys are set.
+  - Nothing calls these four services yet — wiring them into `ScrapeAutovit`/`ScrapeOlx` is left as
+    a small separate follow-up, not bundled into this chapter.
+
 ## 2026-09-28
 
 ### Added

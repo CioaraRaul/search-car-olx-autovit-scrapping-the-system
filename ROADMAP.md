@@ -24,10 +24,5 @@ Laravel not Node, no frontend yet).
 
 ---
 
-## Chapter 9 — Resilience: backoff, circuit breaker, kill switches
-**Status:** not started, cross-cutting.
-**Depends on:** nothing beyond config — buildable as a small shared service now, adopted by
-Chapters 1/2 whenever they run.
-**Builds:** `.env` kill-switch flags (e.g. `SCRAPE_AUTOVIT_ENABLED`), a backoff helper for
-repeated 429/403 responses, and a "got a 200 but parsed zero listings" alert — that usually means
-a site's structure changed, not that there's nothing to find.
+No chapters remain in this file — everything planned so far has been built and merged into
+`development`. See `CHANGELOG.md` for the full history.
