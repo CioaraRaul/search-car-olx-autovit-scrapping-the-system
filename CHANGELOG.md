@@ -7,6 +7,23 @@ progress in a way that's readable without digging through `git log`.
 ## 2026-09-29
 
 ### Added
+- **Flag sellers whose account was registered this year.** Triggered by a real listing the user
+  linked (an Audi A6 whose OLX seller page reads "Pe OLX din martie 2026" — registered this year)
+  that had scored 100/100 with zero flags, because nothing checked seller account age at all.
+  - Both sites expose this on the **same ad page already being fetched** for damage/consumption —
+    zero extra request cost. Confirmed live: Autovit shows it via a `registration-date` badge
+    ("Vânzător pe Autovit.ro din 2025"), OLX via `[data-testid="member-since"]` ("Pe OLX din
+    martie 2026" — verified against the exact listing that prompted this, which parsed to 2026).
+  - New `App\Services\Reliability\Rules\NewSellerAccountEvaluator` flags when
+    `seller_registered_year` equals the current calendar year.
+  - **A moderate penalty (20, configurable), not a hard reject** — deliberately different from the
+    damage/high-consumption rules. A brand-new account alone isn't proof of a scam; it's a
+    statistical suspicion signal that now correctly stacks with any other flag toward rejection,
+    instead of a listing scoring clean just because no single rule caught it.
+  - New nullable `listings.seller_registered_year` column.
+  - 8 new tests: fetcher-level parsing for both sites, evaluator tests (flags this year, not an
+    older year or unknown), and one command-level integration test per scraper.
+
 - **Damage/fuel-consumption checking for OLX too**, at the user's request ("every spec... applies
   even for olx or autovit, only if i specify just for one"). OLX has no structured field for
   either (unlike Autovit's `__NEXT_DATA__`), so this is best-effort free-text keyword detection

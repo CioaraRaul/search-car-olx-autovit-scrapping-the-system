@@ -89,13 +89,16 @@ class ScrapeOlx extends Command
                 if ($existing !== null && $existing->detail_checked_at !== null) {
                     $attributes['is_damaged'] = $existing->is_damaged;
                     $attributes['fuel_consumption_l_100km'] = $existing->fuel_consumption_l_100km;
+                    $attributes['seller_registered_year'] = $existing->seller_registered_year;
                     $attributes['detail_checked_at'] = $existing->detail_checked_at;
                     $detailReused++;
                 } elseif ($detailFetcher->detectDamaged($attributes['title'] ?? '') === true) {
                     // Self-disclosed right in the title — no request needed to know this
-                    // listing will be rejected anyway.
+                    // listing will be rejected anyway. Seller age is unknowable from the
+                    // title alone, but it no longer matters once damage alone rejects it.
                     $attributes['is_damaged'] = true;
                     $attributes['fuel_consumption_l_100km'] = null;
+                    $attributes['seller_registered_year'] = null;
                     $attributes['detail_checked_at'] = now();
                     $detailResolvedByTitle++;
                 } elseif ((int) Cache::get($detailFetchCountKey, 0) >= $detailFetchDailyCap) {
@@ -103,12 +106,14 @@ class ScrapeOlx extends Command
                     // run still tries this listing instead of skipping it forever.
                     $attributes['is_damaged'] = null;
                     $attributes['fuel_consumption_l_100km'] = null;
+                    $attributes['seller_registered_year'] = null;
                     $detailSkippedByCap++;
                 } else {
                     try {
                         $details = $detailFetcher->fetch($attributes['url']);
                         $attributes['is_damaged'] = $details['damaged'];
                         $attributes['fuel_consumption_l_100km'] = $details['fuelConsumptionL100km'];
+                        $attributes['seller_registered_year'] = $details['sellerRegisteredYear'];
                         $attributes['detail_checked_at'] = now();
 
                         Cache::put(

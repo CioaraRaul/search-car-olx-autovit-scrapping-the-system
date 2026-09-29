@@ -188,6 +188,29 @@ test('saves a clean listing with is_damaged=false and its fuel consumption', fun
         ->and((float) $listing->fuel_consumption_l_100km)->toBe(5.0);
 });
 
+test('flags (but does not auto-reject) a listing whose seller registered this year', function () {
+    Http::fake([
+        'https://www.olx.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        'https://www.olx.ro/d/oferta/citroen-c5-2-0-diesel-163-cp-fabricatie-07-2014-IDkYizb.html*' => Http::response(
+            olxAdPageHtml('Masina intretinuta.', memberSince: 'Pe OLX din ianuarie '.date('Y')),
+            200,
+        ),
+        'https://www.olx.ro/d/oferta/*' => Http::response(olxAdPageHtml('Masina intretinuta.'), 200),
+        'https://www.olx.ro/auto-masini-moto-ambarcatiuni/autoturisme/*' => Http::response(
+            file_get_contents(base_path('tests/Fixtures/olx_search_page.html')),
+            200,
+        ),
+    ]);
+
+    $this->artisan('scrape:olx', ['--pages' => 1])->assertExitCode(0);
+
+    $listing = Listing::where('external_id', '309897773')->first();
+
+    expect($listing)->not->toBeNull() // moderate penalty alone doesn't reject
+        ->and($listing->seller_registered_year)->toBe((int) date('Y'))
+        ->and(collect($listing->reliability_flags)->pluck('rule'))->toContain('new-seller-account');
+});
+
 test('skips detail fetches once the daily cap is reached, but still saves listings', function () {
     config(['scraping.olx.detail_fetch_daily_cap' => 0]);
 

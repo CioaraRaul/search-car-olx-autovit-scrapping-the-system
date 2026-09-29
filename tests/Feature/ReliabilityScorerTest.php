@@ -134,7 +134,7 @@ test('excludes listings in a different currency from the comparison', function (
     expect($score->flags)->toBeEmpty();
 });
 
-// --- Damaged vehicle (Autovit-only; is_damaged is null on OLX listings) ---
+// --- Damaged vehicle (populated by AutovitDetailFetcher/OlxDetailFetcher; null when unknown) ---
 
 test('rejects a listing marked as damaged', function () {
     $score = (new ReliabilityScorer)->score([
@@ -158,7 +158,7 @@ test('does not flag a listing where damage status is unknown (e.g. OLX)', functi
     expect($score->flags)->toBeEmpty();
 });
 
-// --- High fuel consumption (Autovit-only; null on OLX listings) ---
+// --- High fuel consumption (populated by AutovitDetailFetcher/OlxDetailFetcher; null when unknown) ---
 
 test('rejects a listing with fuel consumption above the threshold', function () {
     $score = (new ReliabilityScorer)->score([
@@ -182,6 +182,48 @@ test('does not flag fuel consumption when it is unknown (e.g. OLX)', function ()
     $score = (new ReliabilityScorer)->score(['title' => 'OLX car', 'description' => '', 'fuel_consumption_l_100km' => null]);
 
     expect($score->flags)->toBeEmpty();
+});
+
+// --- New seller account ---
+
+test('flags a seller account registered this year', function () {
+    $score = (new ReliabilityScorer)->score([
+        'title' => 'Suspiciously new seller', 'description' => '', 'seller_registered_year' => (int) date('Y'),
+    ]);
+
+    expect($score->flags)->toHaveCount(1)
+        ->and($score->flags[0]->rule)->toBe('new-seller-account');
+});
+
+test('does not flag a seller account registered in a previous year', function () {
+    $score = (new ReliabilityScorer)->score([
+        'title' => 'Established seller', 'description' => '', 'seller_registered_year' => (int) date('Y') - 2,
+    ]);
+
+    expect($score->flags)->toBeEmpty();
+});
+
+test('does not flag when the seller registration year is unknown', function () {
+    $score = (new ReliabilityScorer)->score(['title' => 'Unknown seller', 'description' => '', 'seller_registered_year' => null]);
+
+    expect($score->flags)->toBeEmpty();
+});
+
+test('a moderate new-seller penalty does not reject on its own, but stacks with another flag', function () {
+    $aloneScore = (new ReliabilityScorer)->score([
+        'title' => 'New seller, otherwise clean', 'description' => '', 'seller_registered_year' => (int) date('Y'),
+    ]);
+
+    expect($aloneScore->score)->toBeGreaterThanOrEqual((int) config('car_knowledge.reject_below_score'));
+
+    $stackedScore = (new ReliabilityScorer)->score([
+        'title' => 'New seller, also low mileage', 'description' => '',
+        'seller_registered_year' => (int) date('Y'),
+        'year' => (int) date('Y') - 10, 'mileage_km' => 5000,
+    ]);
+
+    expect($stackedScore->flags)->toHaveCount(2)
+        ->and($stackedScore->score)->toBeLessThan($aloneScore->score);
 });
 
 // --- Scoring composition ---

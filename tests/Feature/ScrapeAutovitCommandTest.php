@@ -177,6 +177,33 @@ test('saves a clean listing with is_damaged=false and its fuel consumption', fun
         ->and((float) $listing->fuel_consumption_l_100km)->toBe(4.9);
 });
 
+test('flags (but does not auto-reject) a listing whose seller registered this year', function () {
+    Http::fake([
+        'https://www.autovit.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        'https://www.autovit.ro/autoturisme/anunt/9000000001.html' => Http::response(
+            autovitAdPageHtml([], seller: [
+                'featuresBadges' => [
+                    ['code' => 'registration-date', 'label' => 'Vânzător pe Autovit.ro din '.date('Y')],
+                ],
+            ]),
+            200,
+        ),
+        'https://www.autovit.ro/autoturisme/anunt/*' => Http::response(autovitAdPageHtml([]), 200),
+        'https://www.autovit.ro/autoturisme?*' => Http::response(
+            file_get_contents(base_path('tests/Fixtures/autovit_search_page.html')),
+            200,
+        ),
+    ]);
+
+    $this->artisan('scrape:autovit', ['--pages' => 1])->assertExitCode(0);
+
+    $listing = Listing::where('external_id', '9000000001')->first();
+
+    expect($listing)->not->toBeNull() // moderate penalty alone doesn't reject
+        ->and($listing->seller_registered_year)->toBe((int) date('Y'))
+        ->and(collect($listing->reliability_flags)->pluck('rule'))->toContain('new-seller-account');
+});
+
 test('skips detail fetches once the daily cap is reached, but still saves listings', function () {
     config(['scraping.autovit.detail_fetch_daily_cap' => 0]);
 
