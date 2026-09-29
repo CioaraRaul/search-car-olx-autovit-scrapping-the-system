@@ -7,6 +7,15 @@ progress in a way that's readable without digging through `git log`.
 ## 2026-09-29
 
 ### Added
+- **`used-car-evaluator` Claude Code skill** (`.claude/skills/used-car-evaluator/SKILL.md`) — a
+  conversational tool, not application code: when you paste a listing link, text, or photos and
+  ask "is this car good"/"should I buy this"/similar, Claude evaluates it like an independent
+  mechanic — exact powertrain identification with live research into known failure points,
+  maintenance-evidence review, genuine-owner-vs-flipper assessment, and a scam-risk knockout check
+  — returning a structured verdict (`recommend`/`verify_first`/`reject`) with cited evidence for
+  every flag. Separate from the automated scrape/filter pipeline (Chapters 1–9); this runs on
+  request, per listing, in conversation.
+
 - **Reject damaged cars and cars with high fuel consumption (Autovit only).** Triggered by a real
   listing report (a Kia Optima marked "Avariata: Da" — damaged/accident history — that had still
   passed the reliability filter). Neither field exists in search-results data; both are read from
