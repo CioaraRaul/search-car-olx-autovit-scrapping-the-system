@@ -48,6 +48,21 @@ Format: **What happened** → **Lesson** → **How to apply**.
 
 ## Testing
 
+### `Cache` TTL expiry respects `Carbon::setTestNow()`/`travel()` on the array store (2026-09-29)
+- **What happened:** Building `ScraperCircuitBreaker` (Chapter 9), which stores an "open until"
+  cache key with a TTL (cooldown period) and needs a test proving `isOpen()` flips back to `false`
+  once the cooldown elapses. Checked Laravel's `ArrayStore::get()` source before assuming
+  `travel()` would work: it compares the stored expiry against `Carbon::now()`, not PHP's real
+  `time()`.
+- **Lesson:** The `array` cache store (what `phpunit.xml` sets `CACHE_STORE` to for tests) honors
+  Carbon's test clock for TTL expiry. `$this->travel(61)->minutes()` after a `Cache::put($key,
+  $value, now()->addMinutes(60))` correctly makes that key expired, no manual timestamp
+  bookkeeping needed.
+- **How to apply:** For any cache-TTL-based state (circuit breakers, rate limits, cooldowns), write
+  the test against real `Cache::put()`/`Cache::has()` with `now()->addMinutes(...)` and move time
+  with `travel()`/`Carbon::setTestNow()` rather than mocking the cache or hand-rolling a fake clock
+  — it just works, because the array test store checks `Carbon::now()`, not the wall clock.
+
 ### A second `Http::fake()` call doesn't override an already-registered URL pattern (2026-09-28, widened)
 - **What happened:** A test that ran a command twice (to check "second run updates instead of duplicating") called `Http::fake([...])` again between the two runs, with a changed fixture body for the same URL pattern. The second run still got the *first* fixture's data — confirmed via a throwaway debug test (`dump()`'d both bodies: `first`/`first`, not `first`/`second`).
 - **Widened while building Chapter 3 (`PriceHistoryRecorderTest`):** it's not just "already hit" URLs. A `beforeEach()` that registers `Http::fake(['url' => success])` for a pattern, followed by a test body that calls `Http::fake(['url' => failure])` for the *same* pattern — with **zero** requests made in between — still served the first (success) response, not the second. So the rule is simpler and stricter than originally written: once a pattern has been registered by any `Http::fake()` call, a later `Http::fake()` call for that same pattern in the same test doesn't take effect at all, hit or not.
