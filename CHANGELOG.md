@@ -6,6 +6,29 @@ progress in a way that's readable without digging through `git log`.
 
 ## 2026-09-29
 
+### Changed
+- **Scheduler: 3 direct Windows tasks instead of an every-minute poller.** Previously a single
+  Windows Task Scheduler entry ran `php artisan schedule:run` every 60 seconds, letting Laravel's
+  own `Schedule` decide when `scrape:autovit`/`scrape:olx`/`notify:send` were actually due — 1,437
+  of those 1,440 daily checks did nothing. At your request (fewer background processes/checks),
+  replaced it with 3 separate Windows tasks, each firing its own command directly at its own time
+  (07:00/07:10/22:00), with no polling in between.
+  - `routes/console.php`'s `Schedule::command(...)` calls removed; `schedule_timezone`
+    (`config/app.php`, `SCHEDULE_TIMEZONE`) removed too since it existed only to make Laravel's
+    scheduler (whose default clock is UTC) fire at Romania time — Windows Task Scheduler triggers
+    already run on the machine's own local clock, and the OS timezone ("FLE Standard Time",
+    UTC+2, same DST rules as Romania) already matches, so no replacement config is needed.
+  - Each new task keeps "run as soon as possible after a missed start" (the catch-up-if-PC-was-off
+    behavior `CLAUDE.md` requires) and `MultipleInstancesPolicy=IgnoreNew` (Windows-native
+    overlap protection, replacing Laravel's removed `withoutOverlapping(120)`).
+  - `run-scheduler-hidden.vbs` replaced by `run-artisan-hidden.vbs`, which takes the artisan
+    command as an argument so all 3 tasks share one wrapper instead of near-duplicate files. (The
+    original file existed only on disk from Chapter 8's manual setup step and was never actually
+    committed — fixed as part of this change.)
+  - `tests/Feature/ScheduleTest.php` deleted — it asserted against Laravel's `Schedule` object,
+    which is now empty by design; there's nothing left to test in PHP, same as how the Windows
+    Task Scheduler side has always been manually verified rather than unit tested.
+
 ### Fixed
 - **Broken links on 415 OLX-sourced listings ("aggregated" partner ads).** OLX's search results
   mix in listings actually hosted on partner sites (Autovit shares the same parent group) — those
