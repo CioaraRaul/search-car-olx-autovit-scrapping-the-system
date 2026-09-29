@@ -64,6 +64,24 @@ test('handles a card missing optional fields gracefully', function () {
         ->and($mapped['url'])->toBe('');
 });
 
+test('leaves an already-absolute url untouched instead of double-prefixing it', function () {
+    // OLX aggregates listings hosted on partner sites (e.g. Autovit); those
+    // cards' href is already a full absolute URL, not an OLX-relative path.
+    $mapped = (new OlxListingMapper)->map(olxRawCard([
+        'relativeUrl' => 'https://www.autovit.ro/anunt/renault-clio-ID7HQHyN.html',
+    ]), 'EUR');
+
+    expect($mapped['url'])->toBe('https://www.autovit.ro/anunt/renault-clio-ID7HQHyN.html');
+});
+
+test('strips the tracking query string from an already-absolute url too', function () {
+    $mapped = (new OlxListingMapper)->map(olxRawCard([
+        'relativeUrl' => 'https://www.autovit.ro/anunt/renault-clio-ID7HQHyN.html?search_reason=search%7Cpromoted',
+    ]), 'EUR');
+
+    expect($mapped['url'])->toBe('https://www.autovit.ro/anunt/renault-clio-ID7HQHyN.html');
+});
+
 test('parses a single-space year/mileage separator the same as OLX\'s double-space cards', function () {
     $mapped = (new OlxListingMapper)->map(olxRawCard([
         'rawYearMileage' => '2013 178 000 km',

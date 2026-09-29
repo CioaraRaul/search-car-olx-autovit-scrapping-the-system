@@ -6,6 +6,27 @@ progress in a way that's readable without digging through `git log`.
 
 ## 2026-09-29
 
+### Fixed
+- **Broken links on 415 OLX-sourced listings ("aggregated" partner ads).** OLX's search results
+  mix in listings actually hosted on partner sites (Autovit shares the same parent group) — those
+  cards' link is already a full absolute URL, not an OLX-relative path. `OlxListingMapper::
+  absoluteUrl()` didn't check for that and blindly prepended OLX's own base URL onto every href,
+  producing broken double-prefixed values like
+  `https://www.olx.rohttps://www.autovit.ro/anunt/renault-clio-ID7HQHyN.html`. Found after the
+  user reported the digest email's "View listing" links weren't working.
+  - `OlxListingMapper::absoluteUrl()` now leaves an already-absolute URL (`http://`/`https://`)
+    untouched instead of re-prefixing it; still strips a relative path's tracking query string as
+    before.
+  - New migration `2026_09_29_182426_fix_double_prefixed_olx_cross_posted_urls` repairs the 415
+    already-stored rows by stripping the erroneous `https://www.olx.ro` prefix — a data fix, not a
+    schema change; safe to re-run (matches nothing once fixed, and a fresh database never has the
+    broken pattern to begin with).
+  - 2 new mapper tests: an already-absolute href is left untouched, and its tracking query string
+    is still stripped the same as a relative href's.
+  - The 415 listings affected by this bug had already been emailed with broken links in the
+    2026-09-29 backlog digest (see below); their `notified_at` was reset and a corrected follow-up
+    digest was sent with the fixed URLs.
+
 ### Added
 - **Chapter 9 complete: resilience — backoff, circuit breaker, kill switches.** Four small,
   standalone services under `app/Services/Scraping/`, ready for `ScrapeAutovit`/`ScrapeOlx` to

@@ -74,6 +74,13 @@ class OlxListingMapper
         ];
     }
 
+    /**
+     * OLX's search results mix in "aggregated" listings hosted on partner
+     * sites (e.g. Autovit — both belong to the same parent group). Those
+     * cards' link is already a full absolute URL rather than an OLX-relative
+     * path, so blindly prepending OLX's base URL would double it up into a
+     * broken string like "https://www.olx.rohttps://www.autovit.ro/...".
+     */
     private function absoluteUrl(string $relativeUrl): string
     {
         if ($relativeUrl === '') {
@@ -81,6 +88,10 @@ class OlxListingMapper
         }
 
         $path = strtok($relativeUrl, '?');
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
 
         return config('scraping.olx.base_url').$path;
     }
