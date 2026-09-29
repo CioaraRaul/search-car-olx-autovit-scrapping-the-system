@@ -95,3 +95,23 @@ Format: **What happened** → **Lesson** → **How to apply**.
 - **What happened:** Right after `laravel new`, any `artisan` command (`package:discover`, later probably anything booting the framework) failed with `Invalid URI: Host is malformed` from `Request.php`.
 - **Lesson:** The generated `.env`'s `APP_URL` was `http://localhost:8000:8000` — a duplicated port, not a header/proxy/network issue. Herd's Windows installer environment appears to inject a port that Laravel's own `.env.example` template then appends to again.
 - **How to apply:** After every `laravel new` on this machine, check `.env`'s `APP_URL` before running any `artisan` command. Fix to a single port (`http://localhost:8000`) if doubled.
+
+## Data / Operations
+
+### A plain `cp` of `database.sqlite` is NOT a safe backup under WAL mode (2026-09-29)
+- **What happened:** Before truncating `listings` at the user's request (to test a new filter on a
+  clean slate), backed it up with `cp database.sqlite database.sqlite.backup-<date>` as a safety
+  net. The truncate itself worked correctly. But when later asked to verify something against that
+  backup, it turned out to contain only 2 rows — not the ~1000+ that existed at backup time.
+- **Lesson:** This project runs SQLite in WAL mode (`DB_JOURNAL_MODE=WAL`, per `CLAUDE.md`'s
+  decided stack, for exactly the concurrent-writer reasons WAL exists). Under WAL, recent commits
+  live in a separate `database.sqlite-wal` file until a checkpoint merges them into the main
+  `.sqlite` file — the main file alone is a stale, possibly very-out-of-date snapshot, not the
+  current database state. A plain file copy of just `.sqlite` silently backs up that stale
+  snapshot, not what the app actually sees.
+- **How to apply:** Before any destructive DB operation, force a checkpoint first
+  (`PRAGMA wal_checkpoint(TRUNCATE);` via `DB::statement(...)`, or `sqlite3 database.sqlite
+  "PRAGMA wal_checkpoint(TRUNCATE);"`) so the main file is guaranteed current, *then* copy it —
+  or copy all three files together (`.sqlite`, `.sqlite-wal`, `.sqlite-shm`) as a set. A "backup"
+  that turns out to be missing most of the data isn't a backup; verify row counts against the live
+  DB right after taking one, not after it's needed.
