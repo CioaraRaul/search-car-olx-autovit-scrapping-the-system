@@ -304,6 +304,39 @@ test('a non-403/429 detail-fetch failure still fails the command loudly', functi
         ->toThrow(RequestException::class);
 });
 
+test('filters out a hatchback-only model when body_type restricts to sedan/break', function () {
+    Http::fake([
+        'https://www.autovit.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        'https://www.autovit.ro/autoturisme/anunt/*' => Http::response(autovitAdPageHtml([]), 200),
+        'https://www.autovit.ro/autoturisme?*' => Http::response(
+            file_get_contents(base_path('tests/Fixtures/autovit_search_page_body_type.html')),
+            200,
+        ),
+    ]);
+
+    $this->artisan('scrape:autovit', ['--pages' => 1])->assertExitCode(0);
+
+    expect(Listing::where('external_id', '9200000001')->exists())->toBeFalse() // Polo: hatchback-only
+        ->and(Listing::where('external_id', '9200000002')->exists())->toBeTrue(); // Superb: unaffected
+});
+
+test('does not filter by body-type mismatch when no body_type criterion is set', function () {
+    SearchCriterion::where('key', 'body_type')->delete();
+
+    Http::fake([
+        'https://www.autovit.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        'https://www.autovit.ro/autoturisme/anunt/*' => Http::response(autovitAdPageHtml([]), 200),
+        'https://www.autovit.ro/autoturisme?*' => Http::response(
+            file_get_contents(base_path('tests/Fixtures/autovit_search_page_body_type.html')),
+            200,
+        ),
+    ]);
+
+    $this->artisan('scrape:autovit', ['--pages' => 1])->assertExitCode(0);
+
+    expect(Listing::where('external_id', '9200000001')->exists())->toBeTrue();
+});
+
 test('builds the request URL without price or order params, per robots.txt', function () {
     fakeAutovitSearchPage('autovit_search_page.html');
 

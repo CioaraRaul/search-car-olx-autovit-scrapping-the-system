@@ -53,4 +53,41 @@ return [
         'penalty' => (int) env('CAR_KNOWLEDGE_NEW_SELLER_ACCOUNT_PENALTY', 20),
     ],
 
+    // Site body-type filters (Autovit/OLX) just forward whatever category the
+    // SELLER picked when posting the ad — there's no independent verification,
+    // so a mislabeled listing (e.g. a hatchback tagged "sedan") can pass a
+    // body_type=sedan,break criterion. This is a conservative list of models
+    // that have never been sold as a sedan or estate in this market, used to
+    // catch that specific, common mislabeling. Keyword groups match the same
+    // way as `reliability_rules.keywords` (every keyword in a group must be
+    // present in the title). Not DB-editable like reliability_rules because
+    // it's fixed domain knowledge, not something tuned per search.
+    'body_type_mismatch' => [
+        'hatchback_only_models' => [
+            ['vw', 'polo'],
+            ['volkswagen', 'polo'],
+            ['vw', 'golf'],
+            ['volkswagen', 'golf'],
+            ['vw', 'up'],
+            ['volkswagen', 'up'],
+            ['ford', 'fiesta'],
+            ['ford', 'ka'],
+            ['renault', 'clio'],
+            ['renault', 'twingo'],
+            ['opel', 'corsa'],
+            ['toyota', 'yaris'],
+            ['toyota', 'aygo'],
+            ['hyundai', 'i10'],
+            ['hyundai', 'i20'],
+            ['kia', 'picanto'],
+            ['kia', 'rio'],
+            ['seat', 'ibiza'],
+            ['skoda', 'fabia'],
+            ['peugeot', '108'],
+            ['peugeot', '208'],
+            ['citroen', 'c3'],
+            ['suzuki', 'swift'],
+        ],
+    ],
+
 ];

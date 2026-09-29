@@ -7,6 +7,33 @@ progress in a way that's readable without digging through `git log`.
 ## 2026-09-29
 
 ### Added
+- **Reject listings whose model can never actually be the body type the seller claimed.** Triggered
+  by a real listing the user linked: a VW Polo passed a `body_type=sedan,break` criterion. Fetching
+  the real ad page showed why — its own data reads `"Caroserie":"Berlina"` → `"normalizedValue":
+  "sedan"`. OLX's (and Autovit's) body-type filter just forwards whatever category the *seller*
+  picked when posting the ad; there's no independent verification, so a mislabeled listing sails
+  straight through. A fully general fix would need a real car-model database, which doesn't exist
+  here, so this is a targeted heuristic instead:
+  - New `App\Services\Reliability\BodyTypeMismatchDetector` checks a listing's title against a
+    conservative, fixed list of models that are never sold as a sedan or estate in this market (VW
+    Polo/Golf/Up, Ford Fiesta/Ka, Renault Clio/Twingo, Opel Corsa, Toyota Yaris/Aygo, Hyundai
+    i10/i20, Kia Picanto/Rio, Seat Ibiza, Skoda Fabia, Peugeot 108/208, Citroën C3, Suzuki Swift).
+    Deliberately left off models with a real sedan/estate variant sold here (e.g. Opel Astra Sedan,
+    Hyundai i30 Tourer) to avoid ever wrongly rejecting a genuine match.
+  - New config array `car_knowledge.body_type_mismatch.hatchback_only_models` — a fixed, non-DB
+    list (unlike `reliability_rules`), since this is core domain knowledge rather than something
+    tuned per search.
+  - Wired into **both** `scrape:autovit` and `scrape:olx`, right alongside the existing price
+    filter (not through `ReliabilityScorer`) — it's enforcing an explicit search criterion, not
+    judging reliability, and it only activates when a `body_type` criterion is actually set.
+    Checked before the detail-page fetch, so a listing being rejected anyway never spends part of
+    the daily detail-fetch budget.
+  - Silent skip, same as the price filter — not saved, no reliability flag. Does not retroactively
+    remove listings already in the database or already emailed.
+  - 7 new tests: detector unit tests, and one command-level integration test per scraper confirming
+    a hatchback-only model is filtered when `body_type` is restrictive, and passes through
+    untouched when no `body_type` criterion is set.
+
 - **Flag sellers whose account was registered this year.** Triggered by a real listing the user
   linked (an Audi A6 whose OLX seller page reads "Pe OLX din martie 2026" — registered this year)
   that had scored 100/100 with zero flags, because nothing checked seller account age at all.
