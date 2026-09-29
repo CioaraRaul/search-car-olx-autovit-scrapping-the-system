@@ -307,6 +307,25 @@ test('a non-403/429 detail-fetch failure still fails the command loudly', functi
         ->toThrow(RequestException::class);
 });
 
+test('filters out a hatchback-only model when body_type restricts to sedan/break', function () {
+    fakeOlxSearchPage('olx_search_page_body_type.html');
+
+    $this->artisan('scrape:olx', ['--pages' => 1])->assertExitCode(0);
+
+    expect(Listing::where('external_id', '9300000001')->exists())->toBeFalse() // Polo: hatchback-only
+        ->and(Listing::where('external_id', '9300000002')->exists())->toBeTrue(); // Superb: unaffected
+});
+
+test('does not filter by body-type mismatch when no body_type criterion is set', function () {
+    SearchCriterion::where('key', 'body_type')->delete();
+
+    fakeOlxSearchPage('olx_search_page_body_type.html');
+
+    $this->artisan('scrape:olx', ['--pages' => 1])->assertExitCode(0);
+
+    expect(Listing::where('external_id', '9300000001')->exists())->toBeTrue();
+});
+
 test('builds the request URL with the confirmed OLX query params', function () {
     fakeOlxSearchPage('olx_search_page.html');
 

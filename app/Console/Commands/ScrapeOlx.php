@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Listing;
 use App\Models\SearchCriterion;
+use App\Services\Reliability\BodyTypeMismatchDetector;
 use App\Services\Reliability\ReliabilityScorer;
 use App\Services\Scraping\OlxClient;
 use App\Services\Scraping\OlxDetailFetcher;
@@ -24,6 +25,7 @@ class ScrapeOlx extends Command
         OlxListingMapper $mapper,
         OlxDetailFetcher $detailFetcher,
         ReliabilityScorer $scorer,
+        BodyTypeMismatchDetector $bodyTypeMismatchDetector,
     ): int {
         $criteria = SearchCriterion::query()->pluck('value', 'key')->all();
         $priceMax = isset($criteria['price_max']) ? (int) $criteria['price_max'] : null;
@@ -37,6 +39,7 @@ class ScrapeOlx extends Command
         $created = 0;
         $updated = 0;
         $filteredByPrice = 0;
+        $filteredByBodyTypeMismatch = 0;
         $rejectedByReliability = 0;
         $detailReused = 0;
         $detailResolvedByTitle = 0;
@@ -73,6 +76,17 @@ class ScrapeOlx extends Command
 
                 if ($priceMax !== null && $comparable && $attributes['price'] > $priceMax) {
                     $filteredByPrice++;
+
+                    continue;
+                }
+
+                // Site body-type filters just forward whatever category the seller picked —
+                // no independent verification — so a mislabeled listing (e.g. a hatchback
+                // tagged "sedan") can pass a body_type=sedan,break criterion. Checked here,
+                // before the detail-page fetch, so a listing we're rejecting anyway never
+                // spends part of the daily detail-fetch budget.
+                if (isset($criteria['body_type']) && $bodyTypeMismatchDetector->isHatchbackOnlyModel($attributes['title'] ?? '')) {
+                    $filteredByBodyTypeMismatch++;
 
                     continue;
                 }
@@ -168,6 +182,7 @@ class ScrapeOlx extends Command
 
         $this->info(
             "OLX: {$created} new, {$updated} updated, {$filteredByPrice} filtered out by price, "
+            ."{$filteredByBodyTypeMismatch} filtered out by body-type mismatch, "
             ."{$rejectedByReliability} rejected by reliability filter, {$detailReused} detail fetches "
             ."reused, {$detailResolvedByTitle} resolved by title, {$detailSkippedByCap} skipped by daily cap"
             .($stoppedEarly ? ', stopped early after a possible block.' : '.')
