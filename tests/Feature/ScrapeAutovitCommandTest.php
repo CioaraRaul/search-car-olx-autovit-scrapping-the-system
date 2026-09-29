@@ -1,9 +1,11 @@
 <?php
 
+use App\Enums\ListingSource;
 use App\Models\Listing;
 use App\Models\ReliabilityRule;
 use App\Models\SearchCriterion;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -11,6 +13,13 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     Cache::flush();
+
+    // The real 3-8s random delay between detail-page fetches (config default) would
+    // make this whole suite take minutes; keep the mechanism but make it instant here.
+    config([
+        'scraping.autovit.detail_fetch_delay_min_ms' => 0,
+        'scraping.autovit.detail_fetch_delay_max_ms' => 0,
+    ]);
 
     SearchCriterion::query()->delete();
     SearchCriterion::create(['key' => 'price_max', 'value' => '7000']);
@@ -166,6 +175,106 @@ test('saves a clean listing with is_damaged=false and its fuel consumption', fun
 
     expect($listing->is_damaged)->toBeFalse()
         ->and((float) $listing->fuel_consumption_l_100km)->toBe(4.9);
+});
+
+test('skips detail fetches once the daily cap is reached, but still saves listings', function () {
+    config(['scraping.autovit.detail_fetch_daily_cap' => 0]);
+
+    Http::fake([
+        'https://www.autovit.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        // If this were ever fetched despite the cap, the listing would come back
+        // damaged and get rejected — so a saved, non-damaged listing here proves
+        // the fetch never happened.
+        'https://www.autovit.ro/autoturisme/anunt/*' => Http::response(
+            autovitAdPageHtml([['key' => 'damaged', 'value' => 'Da']]),
+            200,
+        ),
+        'https://www.autovit.ro/autoturisme?*' => Http::response(
+            file_get_contents(base_path('tests/Fixtures/autovit_search_page.html')),
+            200,
+        ),
+    ]);
+
+    $this->artisan('scrape:autovit', ['--pages' => 1])->assertExitCode(0);
+
+    Http::assertNotSent(fn ($request) => str_contains((string) $request->url(), '/autoturisme/anunt/'));
+
+    $listing = Listing::where('external_id', '9000000001')->first();
+
+    expect($listing)->not->toBeNull()
+        ->and($listing->is_damaged)->toBeNull()
+        ->and($listing->detail_checked_at)->toBeNull();
+});
+
+test('reuses an already-checked listing\'s stored detail data instead of re-fetching', function () {
+    Listing::create([
+        'source' => ListingSource::Autovit,
+        'external_id' => '9000000001',
+        'title' => 'Old title',
+        'price' => 4500,
+        'currency' => 'EUR',
+        'url' => 'https://www.autovit.ro/autoturisme/anunt/9000000001.html',
+        'is_damaged' => false,
+        'fuel_consumption_l_100km' => 5.5,
+        'detail_checked_at' => now()->subDay(),
+    ]);
+
+    Http::fake([
+        'https://www.autovit.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        // If this were fetched despite already being checked, is_damaged would
+        // flip to true (and get rejected) instead of keeping the stored false.
+        'https://www.autovit.ro/autoturisme/anunt/*' => Http::response(
+            autovitAdPageHtml([['key' => 'damaged', 'value' => 'Da']]),
+            200,
+        ),
+        'https://www.autovit.ro/autoturisme?*' => Http::response(
+            file_get_contents(base_path('tests/Fixtures/autovit_search_page.html')),
+            200,
+        ),
+    ]);
+
+    $this->artisan('scrape:autovit', ['--pages' => 1])->assertExitCode(0);
+
+    // The fixture's other listing (9000000002) was never checked before, so it
+    // legitimately still fetches its own detail page — only 9000000001's is skipped.
+    Http::assertNotSent(fn ($request) => str_contains((string) $request->url(), '/autoturisme/anunt/9000000001.html'));
+
+    $listing = Listing::where('external_id', '9000000001')->first();
+
+    expect($listing->is_damaged)->toBeFalse()
+        ->and((float) $listing->fuel_consumption_l_100km)->toBe(5.5);
+});
+
+test('stops the run immediately on a 403 while fetching a detail page', function () {
+    Http::fake([
+        'https://www.autovit.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        'https://www.autovit.ro/autoturisme/anunt/9000000001.html' => Http::response('Blocked', 403),
+        'https://www.autovit.ro/autoturisme/anunt/*' => Http::response(autovitAdPageHtml([]), 200),
+        'https://www.autovit.ro/autoturisme?*' => Http::response(
+            file_get_contents(base_path('tests/Fixtures/autovit_search_page.html')),
+            200,
+        ),
+    ]);
+
+    $this->artisan('scrape:autovit', ['--pages' => 1])->assertExitCode(0);
+
+    expect(Listing::where('external_id', '9000000001')->exists())->toBeFalse()
+        ->and(Listing::where('external_id', '9000000002')->exists())->toBeFalse(); // never reached: run stopped
+});
+
+test('a non-403/429 detail-fetch failure still fails the command loudly', function () {
+    Http::fake([
+        'https://www.autovit.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        'https://www.autovit.ro/autoturisme/anunt/9000000001.html' => Http::response('Server error', 500),
+        'https://www.autovit.ro/autoturisme/anunt/*' => Http::response(autovitAdPageHtml([]), 200),
+        'https://www.autovit.ro/autoturisme?*' => Http::response(
+            file_get_contents(base_path('tests/Fixtures/autovit_search_page.html')),
+            200,
+        ),
+    ]);
+
+    expect(fn () => $this->artisan('scrape:autovit', ['--pages' => 1])->run())
+        ->toThrow(RequestException::class);
 });
 
 test('builds the request URL without price or order params, per robots.txt', function () {

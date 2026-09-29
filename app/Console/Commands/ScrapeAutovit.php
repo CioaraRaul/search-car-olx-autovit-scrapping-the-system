@@ -11,6 +11,9 @@ use App\Services\Scraping\AutovitListingMapper;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 #[Signature('scrape:autovit {--pages=}')]
 #[Description('Scrape Autovit for cars matching the saved search criteria and store them in listings.')]
@@ -32,6 +35,12 @@ class ScrapeAutovit extends Command
         $updated = 0;
         $filteredByPrice = 0;
         $rejectedByReliability = 0;
+        $detailReused = 0;
+        $detailSkippedByCap = 0;
+        $stoppedEarly = false;
+
+        $detailFetchCountKey = 'autovit:detail-fetch-count:'.now()->toDateString();
+        $detailFetchDailyCap = (int) config('scraping.autovit.detail_fetch_daily_cap');
 
         for ($page = 1; $page <= $maxPages; $page++) {
             $result = $client->fetchPage($criteria, $page);
@@ -54,12 +63,56 @@ class ScrapeAutovit extends Command
                 // Damage/consumption data only exists on the ad's own page (see
                 // AutovitDetailFetcher), not in search results — fetched here, after the
                 // price filter, so a listing that's already out on price never costs an
-                // extra request.
-                $details = $detailFetcher->fetch($attributes['url']);
-                $attributes['is_damaged'] = $details['damaged'];
-                $attributes['fuel_consumption_l_100km'] = $details['fuelConsumptionL100km'];
+                // extra request. A car's own page doesn't change between runs, so an
+                // already-checked listing reuses its stored values instead of re-fetching.
+                $existing = Listing::where('source', $attributes['source'])
+                    ->where('external_id', $attributes['external_id'])
+                    ->first();
 
-                usleep((int) config('scraping.request_delay_ms') * 1000);
+                if ($existing !== null && $existing->detail_checked_at !== null) {
+                    $attributes['is_damaged'] = $existing->is_damaged;
+                    $attributes['fuel_consumption_l_100km'] = $existing->fuel_consumption_l_100km;
+                    $attributes['detail_checked_at'] = $existing->detail_checked_at;
+                    $detailReused++;
+                } elseif ((int) Cache::get($detailFetchCountKey, 0) >= $detailFetchDailyCap) {
+                    // Daily cap reached: leave detail_checked_at unset so a future day's
+                    // run still tries this listing instead of skipping it forever.
+                    $attributes['is_damaged'] = null;
+                    $attributes['fuel_consumption_l_100km'] = null;
+                    $detailSkippedByCap++;
+                } else {
+                    try {
+                        $details = $detailFetcher->fetch($attributes['url']);
+                        $attributes['is_damaged'] = $details['damaged'];
+                        $attributes['fuel_consumption_l_100km'] = $details['fuelConsumptionL100km'];
+                        $attributes['detail_checked_at'] = now();
+
+                        Cache::put(
+                            $detailFetchCountKey,
+                            (int) Cache::get($detailFetchCountKey, 0) + 1,
+                            now()->endOfDay(),
+                        );
+                    } catch (RequestException $e) {
+                        $status = $e->response->status();
+
+                        if ($status === 403 || $status === 429) {
+                            Log::warning("scrape:autovit stopping early: detail-page fetch got HTTP {$status}, likely blocked.", [
+                                'url' => $attributes['url'],
+                            ]);
+                            $this->warn("Autovit returned HTTP {$status} fetching a listing's own page — stopping this run early.");
+                            $stoppedEarly = true;
+
+                            break 2;
+                        }
+
+                        throw $e;
+                    }
+
+                    usleep(random_int(
+                        (int) config('scraping.autovit.detail_fetch_delay_min_ms'),
+                        (int) config('scraping.autovit.detail_fetch_delay_max_ms'),
+                    ) * 1000);
+                }
 
                 $reliability = $scorer->score($attributes);
 
@@ -92,7 +145,9 @@ class ScrapeAutovit extends Command
 
         $this->info(
             "Autovit: {$created} new, {$updated} updated, {$filteredByPrice} filtered out by price, "
-            ."{$rejectedByReliability} rejected by reliability filter."
+            ."{$rejectedByReliability} rejected by reliability filter, {$detailReused} detail fetches "
+            ."reused, {$detailSkippedByCap} skipped by daily cap"
+            .($stoppedEarly ? ', stopped early after a possible block.' : '.')
         );
 
         return self::SUCCESS;

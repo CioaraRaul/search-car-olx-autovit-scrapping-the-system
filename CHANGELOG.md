@@ -7,6 +7,31 @@ progress in a way that's readable without digging through `git log`.
 ## 2026-09-29
 
 ### Added
+- **Safeguards on the Autovit detail-page fetch**, at the user's request after the
+  damage/fuel-consumption filter's own changelog entry flagged the added load (roughly 32x more
+  Autovit requests per run — one per listing that survives the price filter, vs. one per ~32
+  listings for search results):
+  - **Random 3–8s delay** (`SCRAPER_AUTOVIT_DETAIL_DELAY_MIN_MS`/`_MAX_MS`) between detail-page
+    fetches, replacing the fixed `request_delay_ms` pause for this specific step.
+  - **A daily cap** (`SCRAPER_AUTOVIT_DETAIL_DAILY_CAP`, default 100) on how many detail pages get
+    fetched per day, tracked in the `database` cache store (same "must survive across separate
+    daily cron processes" reasoning Chapter 9's circuit breaker used) so it holds across every
+    `scrape:autovit` invocation that day, not just within one run. A listing skipped by the cap
+    keeps `detail_checked_at` unset, so a future day's run still tries it rather than skipping it
+    forever.
+  - **Skips already-checked listings.** New nullable `listings.detail_checked_at` column marks
+    "we successfully fetched this listing's own page" — distinct from `is_damaged`/
+    `fuel_consumption_l_100km` being `null`, which is itself a valid, already-observed outcome (not
+    every ad publishes those fields). A listing that's been checked before reuses its stored values
+    on a later run instead of re-fetching a page that isn't going to have changed.
+  - **Stops the run immediately on a 403 or 429** while fetching a detail page — caught via
+    `Illuminate\Http\Client\RequestException`, logged as a warning, and the run ends there rather
+    than continuing to the next listing or page. Deliberately narrow: any other HTTP failure (5xx,
+    timeout, a genuinely changed page structure) still fails the command loudly as before — 403/429
+    specifically means "we're being blocked," everything else means "something's actually broken."
+  - 4 new tests covering the cap, the reuse skip, the immediate stop on 403, and that a non-403/429
+    failure still isn't silently swallowed.
+
 - **`used-car-evaluator` Claude Code skill** (`.claude/skills/used-car-evaluator/SKILL.md`) — a
   conversational tool, not application code: when you paste a listing link, text, or photos and
   ask "is this car good"/"should I buy this"/similar, Claude evaluates it like an independent
