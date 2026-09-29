@@ -23,15 +23,39 @@ return [
     'robots_txt_cache_ttl' => env('SCRAPER_ROBOTS_TXT_CACHE_TTL', 60 * 60 * 24),
 
     'autovit' => [
+        'enabled' => env('SCRAPE_AUTOVIT_ENABLED', true),
         'base_url' => 'https://www.autovit.ro',
         'search_path' => '/autoturisme',
         'max_pages' => env('SCRAPER_AUTOVIT_MAX_PAGES', 25),
     ],
 
     'olx' => [
+        'enabled' => env('SCRAPE_OLX_ENABLED', true),
         'base_url' => 'https://www.olx.ro',
         'search_path' => '/auto-masini-moto-ambarcatiuni/autoturisme/',
         'max_pages' => env('SCRAPER_OLX_MAX_PAGES', 25),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Resilience
+    |--------------------------------------------------------------------------
+    |
+    | Shared safety thresholds for every scraper: how many consecutive
+    | failures trip the circuit breaker, how long it stays tripped, and the
+    | exponential backoff schedule for retrying a failed HTTP request.
+    |
+    */
+
+    'resilience' => [
+        'max_consecutive_failures' => env('SCRAPER_CIRCUIT_BREAKER_THRESHOLD', 3),
+        'cooldown_minutes' => env('SCRAPER_CIRCUIT_BREAKER_COOLDOWN_MINUTES', 60),
+
+        'backoff' => [
+            'base_ms' => env('SCRAPER_BACKOFF_BASE_MS', 1000),
+            'max_ms' => env('SCRAPER_BACKOFF_MAX_MS', 30000),
+            'max_attempts' => env('SCRAPER_BACKOFF_MAX_ATTEMPTS', 4),
+        ],
     ],
 
 ];
