@@ -87,7 +87,7 @@ class ScrapeOlx extends Command
                 // tagged "sedan") can pass a body_type=sedan,break criterion. Checked here,
                 // before the detail-page fetch, so a listing we're rejecting anyway never
                 // spends part of the daily detail-fetch budget.
-                if (isset($criteria['body_type']) && $bodyTypeGuard->isAcceptable($attributes['title'] ?? '') === false) {
+                if (isset($criteria['body_type']) && $bodyTypeGuard->hardRejection($attributes['title'] ?? '') !== null) {
                     $filteredByBodyTypeMismatch++;
 
                     continue;
@@ -113,6 +113,7 @@ class ScrapeOlx extends Command
                     $attributes['is_damaged'] = $existing->is_damaged;
                     $attributes['fuel_consumption_l_100km'] = $existing->fuel_consumption_l_100km;
                     $attributes['seller_registered_year'] = $existing->seller_registered_year;
+                    $attributes['description'] = $existing->description;
                     $attributes['detail_checked_at'] = $existing->detail_checked_at;
                     $detailReused++;
                 } elseif ($detailFetcher->detectDamaged($attributes['title'] ?? '') === true) {
@@ -137,6 +138,7 @@ class ScrapeOlx extends Command
                         $attributes['is_damaged'] = $details['damaged'];
                         $attributes['fuel_consumption_l_100km'] = $details['fuelConsumptionL100km'];
                         $attributes['seller_registered_year'] = $details['sellerRegisteredYear'];
+                        $attributes['description'] = $details['description'] ?? $attributes['description'];
                         $attributes['fuel_type'] = $details['fuelType'];
                         $attributes['engine_capacity_cc'] = $details['engineCapacityCc'];
                         $attributes['horsepower'] = $details['horsepower'];
@@ -168,6 +170,17 @@ class ScrapeOlx extends Command
                         (int) config('scraping.olx.detail_fetch_delay_min_ms'),
                         (int) config('scraping.olx.detail_fetch_delay_max_ms'),
                     ) * 1000);
+                }
+
+                // Confirming the body style needs the ad description, so this can only run once
+                // the ad page has been read. A listing the daily cap left unchecked is saved,
+                // but the email holds it back until a later scrape has checked it.
+                if (isset($criteria['body_type'])
+                    && ($attributes['detail_checked_at'] ?? null) !== null
+                    && $bodyTypeGuard->rejectionReason($attributes['title'] ?? '', $attributes['description'] ?? null) !== null) {
+                    $filteredByBodyTypeMismatch++;
+
+                    continue;
                 }
 
                 $reliability = $scorer->score($attributes);

@@ -407,3 +407,44 @@ test('an already-saved listing that now fails needs-fit gets its score lowered, 
     expect($saved->fresh()->reliability_score)->toBeLessThan(90)
         ->and($saved->fresh()->fuel_type)->toBe('diesel');
 });
+
+test('saves the ad description, and keeps a car whose description says berlina even though its title does not', function () {
+    SearchCriterion::create(['key' => 'body_type', 'value' => 'sedan,break']);
+
+    Http::fake([
+        'https://www.olx.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        'https://www.olx.ro/d/oferta/*' => Http::response(
+            '<html><body><div data-testid="ad_description"><div>Vand berlina in stare foarte buna</div></div><p>Combustibil: Benzina</p></body></html>',
+            200,
+        ),
+        'https://www.olx.ro/auto-masini-moto-ambarcatiuni/autoturisme/*' => Http::response(
+            file_get_contents(base_path('tests/Fixtures/olx_search_page.html')),
+            200,
+        ),
+    ]);
+
+    $this->artisan('scrape:olx', ['--pages' => 1])->assertExitCode(0);
+
+    // The Citroen C5 title has no body word and is not an always-sedan model, but its description does.
+    expect(Listing::where('external_id', '309897773')->value('description'))->toContain('berlina');
+});
+
+test('drops a car whose description has no sedan/estate word when its title has none either', function () {
+    SearchCriterion::create(['key' => 'body_type', 'value' => 'sedan,break']);
+
+    Http::fake([
+        'https://www.olx.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        'https://www.olx.ro/d/oferta/*' => Http::response(
+            '<html><body><div data-testid="ad_description"><div>Masina buna</div></div><p>Combustibil: Benzina</p></body></html>',
+            200,
+        ),
+        'https://www.olx.ro/auto-masini-moto-ambarcatiuni/autoturisme/*' => Http::response(
+            file_get_contents(base_path('tests/Fixtures/olx_search_page.html')),
+            200,
+        ),
+    ]);
+
+    $this->artisan('scrape:olx', ['--pages' => 1])->assertExitCode(0);
+
+    expect(Listing::where('external_id', '309897773')->exists())->toBeFalse();
+});

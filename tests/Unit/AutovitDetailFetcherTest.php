@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Http;
  * @param  array<int, array<string, mixed>>  $details
  * @param  array<string, mixed>  $seller
  */
-function autovitAdPageHtml(array $details, array $seller = []): string
+function autovitAdPageHtml(array $details, array $seller = [], ?string $description = null): string
 {
     $nextData = json_encode([
         'props' => [
@@ -20,6 +20,7 @@ function autovitAdPageHtml(array $details, array $seller = []): string
                 'advert' => [
                     'details' => $details,
                     'seller' => $seller,
+                    'description' => $description,
                 ],
             ],
         ],
@@ -133,4 +134,18 @@ test('sellerRegisteredYear is null when the badge is absent', function () {
     $result = (new AutovitDetailFetcher)->fetch($url);
 
     expect($result['sellerRegisteredYear'])->toBeNull();
+});
+
+test('returns the ad description as plain text', function () {
+    $url = 'https://www.autovit.ro/autoturisme/anunt/desc-ID1.html';
+    Http::fake([$url => Http::response(autovitAdPageHtml([], [], '<p>Vand Focus <b>berlina</b>,&nbsp;unic proprietar</p>'), 200)]);
+
+    expect((new AutovitDetailFetcher)->fetch($url)['description'])->toContain('Focus berlina')->not->toContain('<');
+});
+
+test('the description is null when the ad has none', function () {
+    $url = 'https://www.autovit.ro/autoturisme/anunt/nodesc-ID2.html';
+    fakeAutovitAdPage($url, []);
+
+    expect((new AutovitDetailFetcher)->fetch($url)['description'])->toBeNull();
 });
