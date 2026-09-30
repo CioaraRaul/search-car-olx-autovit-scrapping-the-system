@@ -21,8 +21,8 @@ test('rejects a diesel recognised from engine-code words in the title when fuel 
 test('does not reject petrol, LPG or hybrid cars', function (string $title, ?string $fuel) {
     expect(needsFitRules(['title' => $title, 'fuel_type' => $fuel]))->toBe([]);
 })->with([
-    'petrol field' => ['Dacia Logan 0.9 TCe', 'petrol'],
-    'lpg field' => ['Dacia Logan 1.0 SCe GPL', 'petrol-lpg'],
+    'petrol field' => ['Dacia Logan 1.2 16v', 'petrol'],
+    'lpg field' => ['Dacia Logan 1.2 GPL', 'petrol-lpg'],
     'hybrid field' => ['Toyota Corolla Hybrid combi', 'hybrid'],
     'unknown fuel, petrol title' => ['Dacia Logan 1.2 benzina', null],
     'unknown everything' => ['Dacia Logan MCV', null],
@@ -32,6 +32,21 @@ test('does not reject petrol, LPG or hybrid cars', function (string $title, ?str
 test('the structured fuel type wins over words in the text', function () {
     // A petrol car whose description happens to mention a diesel trim must not be rejected
     expect(needsFitRules(['title' => 'Logan', 'fuel_type' => 'petrol', 'description' => 'nu e dCi, e benzina']))->toBe([]);
+});
+
+test('rejects an engine smaller than 1.2 L but accepts 1.2 and above', function () {
+    expect(needsFitRules(['title' => 'Dacia Logan', 'engine_capacity_cc' => 999, 'fuel_type' => 'petrol']))->toContain('engine-too-small')
+        ->and(needsFitRules(['title' => 'Dacia Logan', 'engine_capacity_cc' => 898, 'fuel_type' => 'petrol']))->toContain('engine-too-small')
+        ->and(needsFitRules(['title' => 'Dacia Logan', 'engine_capacity_cc' => 1149, 'fuel_type' => 'petrol']))->toBe([])
+        ->and(needsFitRules(['title' => 'Skoda Rapid', 'engine_capacity_cc' => 1197, 'fuel_type' => 'petrol']))->toBe([])
+        ->and(needsFitRules(['title' => 'Logan', 'engine_capacity_cc' => null, 'fuel_type' => 'petrol']))->toBe([]);
+});
+
+test('reads a small engine from the title when the field is missing', function () {
+    expect(needsFitRules(['title' => 'Dacia Logan 0.9 TCe', 'fuel_type' => null]))->toContain('engine-too-small')
+        ->and(needsFitRules(['title' => 'Dacia Logan 1.0 SCe', 'fuel_type' => null]))->toContain('engine-too-small')
+        ->and(needsFitRules(['title' => 'Dacia Logan 1.2 16v', 'fuel_type' => null]))->toBe([])
+        ->and(needsFitRules(['title' => 'Logan MCV', 'fuel_type' => null]))->toBe([]);
 });
 
 test('rejects an engine bigger than 2.0 L but accepts 2.0 and below', function () {

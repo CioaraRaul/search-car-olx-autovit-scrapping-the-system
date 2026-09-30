@@ -206,7 +206,7 @@ test('flags (but does not auto-reject) a listing whose seller registered this ye
         ->and(collect($listing->reliability_flags)->pluck('rule'))->toContain('new-seller-account');
 });
 
-test('skips detail fetches once the daily cap is reached, but still saves listings', function () {
+test('stops the run once the daily cap is reached and saves no unchecked listings', function () {
     config(['scraping.autovit.detail_fetch_daily_cap' => 0]);
 
     Http::fake([
@@ -228,11 +228,8 @@ test('skips detail fetches once the daily cap is reached, but still saves listin
 
     Http::assertNotSent(fn ($request) => str_contains((string) $request->url(), '/autoturisme/anunt/'));
 
-    $listing = Listing::where('external_id', '9000000001')->first();
-
-    expect($listing)->not->toBeNull()
-        ->and($listing->is_damaged)->toBeNull()
-        ->and($listing->detail_checked_at)->toBeNull();
+    // No car is saved without its ad page being checked.
+    expect(Listing::count())->toBe(0);
 });
 
 test('reuses an already-checked listing\'s stored detail data instead of re-fetching', function () {

@@ -6,6 +6,15 @@ progress in a way that's readable without digging through `git log`.
 
 ## 2026-10-01
 
+### Changed (2026-10-01, later)
+- **The scrapers now stop when the daily ad-page cap (100 per site) is reached** and never save a car
+  they could not check. Before, the rest of the run kept saving cars unchecked (they were held back
+  from the email but cluttered the database). Already-checked cars reuse their stored data and cost
+  nothing against the cap, so each day's run reaches further down the results.
+- **Minimum engine is now 1.2 L** (`CAR_KNOWLEDGE_MIN_ENGINE_CC`, default 1140 cc so real 1.2 engines
+  at 1149-1199 cc pass): 0.9 / 1.0 engines are rejected. Together with the 2.0 L maximum, engines
+  must be 1.2-2.0 L. The title fallback now also reads small engines ("0.9 TCe", "1.0 SCe").
+
 ### Changed (body-type check widened, 2026-10-01)
 - **The narrow model whitelist is gone.** It made almost every result a Dacia Logan. Any make/model is
   now allowed, except: premium brands (BMW, Audi, Mercedes, ...), titles with a non-sedan word
