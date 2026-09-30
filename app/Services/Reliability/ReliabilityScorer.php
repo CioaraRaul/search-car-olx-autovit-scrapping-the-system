@@ -5,6 +5,7 @@ namespace App\Services\Reliability;
 use App\Services\Reliability\Rules\BelowMarketPriceEvaluator;
 use App\Services\Reliability\Rules\DamagedVehicleEvaluator;
 use App\Services\Reliability\Rules\HighFuelConsumptionEvaluator;
+use App\Services\Reliability\Rules\ImplausibleMileageEvaluator;
 use App\Services\Reliability\Rules\KnownIssueEvaluator;
 use App\Services\Reliability\Rules\LowMileageEvaluator;
 use App\Services\Reliability\Rules\NewSellerAccountEvaluator;
@@ -19,6 +20,7 @@ class ReliabilityScorer
     {
         $this->evaluators = [
             new KnownIssueEvaluator,
+            new ImplausibleMileageEvaluator,
             new LowMileageEvaluator,
             new BelowMarketPriceEvaluator,
             new DamagedVehicleEvaluator,

@@ -40,6 +40,11 @@ class RescoreListings extends Command
                 'mileage_km' => $listing->mileage_km,
                 'price' => $listing->price,
                 'currency' => $listing->currency,
+                // Detail-page fields too: without them a rescore would silently drop the
+                // damaged / high-consumption / new-seller flags and wrongly RAISE scores.
+                'is_damaged' => $listing->is_damaged,
+                'fuel_consumption_l_100km' => $listing->fuel_consumption_l_100km,
+                'seller_registered_year' => $listing->seller_registered_year,
             ]);
 
             $listing->update([

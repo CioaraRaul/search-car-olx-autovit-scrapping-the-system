@@ -57,3 +57,16 @@ test('--all re-scores an already-scored listing', function () {
 
     expect($listing->fresh()->reliability_score)->toBe(70);
 });
+
+test('--all keeps the damaged flag from the stored detail data instead of raising the score', function () {
+    $listing = makeUnscoredListing([
+        'title' => 'Dacia Logan',
+        'is_damaged' => true,
+        'reliability_score' => 100,
+        'reliability_scored_at' => now(),
+    ]);
+
+    $this->artisan('reliability:rescore', ['--all' => true])->assertExitCode(0);
+
+    expect($listing->fresh()->reliability_score)->toBe(0);
+});

@@ -84,3 +84,16 @@ test('does not email a duplicate of a car that was already emailed', function ()
 
     Mail::assertNothingSent();
 });
+
+test('never emails a listing whose reliability score is below the threshold', function () {
+    $bad = makeListing(['external_id' => 'bad-1', 'reliability_score' => 70]);
+    $good = makeListing(['external_id' => 'good-1', 'reliability_score' => 95]);
+
+    $this->artisan('notify:send')->assertExitCode(0);
+
+    Mail::assertSent(ListingsDigest::class, function (ListingsDigest $mail) use ($bad, $good) {
+        $ids = $mail->listings->pluck('id');
+
+        return $ids->contains($good->id) && ! $ids->contains($bad->id);
+    });
+});
