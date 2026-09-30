@@ -49,8 +49,16 @@ class ListingsDigestNotifier
         $bodyTypeSet = SearchCriterion::where('key', 'body_type')->exists();
 
         return $listings->filter(
-            fn (Listing $listing) => ! $bodyTypeSet || $this->bodyTypeGuard->isAcceptable((string) $listing->title),
+            fn (Listing $listing) => $this->meetsReliabilityThreshold($listing)
+                && (! $bodyTypeSet || $this->bodyTypeGuard->isAcceptable((string) $listing->title)),
         )->values();
+    }
+
+    /** A scored listing below the current threshold is never emailed (unscored rows pass). */
+    private function meetsReliabilityThreshold(Listing $listing): bool
+    {
+        return $listing->reliability_score === null
+            || $listing->reliability_score >= (int) config('car_knowledge.reject_below_score');
     }
 
     /**

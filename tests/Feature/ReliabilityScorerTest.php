@@ -4,6 +4,7 @@ use App\Enums\ListingSource;
 use App\Models\Listing;
 use App\Models\ReliabilityRule;
 use App\Services\Reliability\ReliabilityScorer;
+use Database\Seeders\ReliabilityRuleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -247,3 +248,58 @@ test('sums multiple penalties and floors the score at 0', function () {
     expect($score->flags)->toHaveCount(2)
         ->and($score->score)->toBe(0);
 });
+
+// --- Implausible mileage (typo / scam) ---
+
+test('hard-rejects a used car advertised with an impossibly low mileage like 350 km', function () {
+    $score = (new ReliabilityScorer)->score([
+        'title' => 'Ford Mondeo 2015', 'description' => '',
+        'year' => 2015, 'mileage_km' => 350,
+    ]);
+
+    expect(collect($score->flags)->pluck('rule'))->toContain('implausible-mileage')
+        ->and($score->score)->toBe(0)
+        ->and($score->score)->toBeLessThan((int) config('car_knowledge.reject_below_score'));
+});
+
+test('does not treat a plausible mileage or a current-year car as implausible', function () {
+    $scorer = new ReliabilityScorer;
+
+    $plausible = $scorer->score(['title' => 'Logan', 'description' => '', 'year' => (int) date('Y') - 4, 'mileage_km' => 60000]);
+    $brandNew = $scorer->score(['title' => 'New', 'description' => '', 'year' => (int) date('Y'), 'mileage_km' => 50]);
+
+    expect($plausible->flags)->toBeEmpty()
+        ->and($brandNew->flags)->toBeEmpty();
+});
+
+// --- The strict threshold ---
+
+test('the reject threshold is 90, so any flag of 11+ points rejects', function () {
+    expect(config('car_knowledge.reject_below_score'))->toBe(90);
+
+    $lowMileage = (new ReliabilityScorer)->score([
+        'title' => 'Old car', 'description' => '', 'year' => (int) date('Y') - 10, 'mileage_km' => 5000,
+    ]);
+
+    expect($lowMileage->score)->toBeLessThan(90);
+});
+
+// --- Seeded engine/gearbox rules ---
+
+test('the seeded rules flag well-known problem engines and gearboxes but not good ones', function (string $title, bool $flagged) {
+    $this->seed(ReliabilityRuleSeeder::class);
+
+    $score = (new ReliabilityScorer)->score(['title' => $title, 'description' => '']);
+
+    expect($score->score < 90)->toBe($flagged);
+})->with([
+    'DQ200 dry DSG' => ['Skoda Rapid 1.2 TSI DSG', true],
+    'PureTech' => ['Peugeot 301 1.2 PureTech', true],
+    'Renault TCe 1.2' => ['Renault Megane 1.2 TCe combi', true],
+    'Dacia EDC' => ['Dacia Logan Renault EDC', true],
+    'Opel 1.4 turbo' => ['Opel Astra 1.4 Turbo sedan', true],
+    'Good: Logan 0.9 TCe' => ['Dacia Logan 0.9 TCe GPL', false],
+    'Good: Toyota Avensis 1.8' => ['Toyota Avensis 1.8 benzina', false],
+    'Good: Logan 1.2 16v' => ['Dacia Logan 1.2 16v', false],
+    'Good: Skoda Rapid manual' => ['Skoda Rapid 1.2 TSI manual', false],
+]);

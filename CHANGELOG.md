@@ -21,6 +21,23 @@ progress in a way that's readable without digging through `git log`.
   listings saved earlier, so nothing rejected by today's rules is ever emailed (they stay in the
   database, unnotified, not deleted).
 
+### Changed (strict reliability filter, 2026-09-30)
+- **Reject threshold is now 90** (was 60). Only cars with at most one minor (10-point) flag are
+  saved or emailed. The new-seller-account flag dropped from 20 to 10 points so a first-time seller
+  alone still passes (score 90) but stacks with any other flag to reject.
+- **Impossibly low mileage is now an automatic rejection.** `ImplausibleMileageEvaluator` rejects a
+  car from a previous year showing under 1,000 km — "350 km" is a typo for 350,000 or a scam. In the
+  saved data this caught 10 listings (a 2014 Logan at 53 km, a 2015 Mondeo at 270 km, ...).
+- **Eleven new known-problem rules** in `ReliabilityRuleSeeder` (each rejects on its own): VW dry-clutch
+  DSG (DQ200), VW 1.4 TSI twincharger, PSA PureTech 1.2, PSA 1.6 THP, Renault 1.2 TCe, Renault/Dacia
+  EDC, Opel 1.4 Turbo, Ford 1.0 EcoBoost, Kia Optima Theta GDI, Jatco CVT. They match the engine or
+  gearbox only when the seller writes it in the title/description.
+- **`notify:send` never emails a scored listing below the threshold.**
+
+### Fixed
+- **`reliability:rescore` would have raised scores wrongly**: it did not pass the damaged /
+  high-consumption / new-seller data to the scorer, silently dropping those flags. It now does.
+
 ### Added
 - **One email per car.** The same car posted on both OLX and Autovit (same year, mileage and price)
   is emailed once, and never again if a twin was already sent.

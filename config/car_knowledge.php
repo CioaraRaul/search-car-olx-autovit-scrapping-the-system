@@ -15,7 +15,14 @@ return [
 
     'base_score' => 100,
 
-    'reject_below_score' => env('CAR_KNOWLEDGE_REJECT_BELOW_SCORE', 60),
+    'reject_below_score' => env('CAR_KNOWLEDGE_REJECT_BELOW_SCORE', 90),
+
+    // Absolute exclusion: a used car showing fewer than min_km is a typo (350
+    // meant 350,000) or a scam — the real mileage is unknown, so reject it.
+    'implausible_mileage' => [
+        'min_km' => (int) env('CAR_KNOWLEDGE_IMPLAUSIBLE_MILEAGE_MIN_KM', 1000),
+        'penalty' => 100,
+    ],
 
     'low_mileage' => [
         'expected_km_per_year' => (int) env('CAR_KNOWLEDGE_EXPECTED_KM_PER_YEAR', 15000),
@@ -50,7 +57,7 @@ return [
     // flags toward rejection rather than auto-rejecting a genuine first-time
     // seller on its own.
     'new_seller_account' => [
-        'penalty' => (int) env('CAR_KNOWLEDGE_NEW_SELLER_ACCOUNT_PENALTY', 20),
+        'penalty' => (int) env('CAR_KNOWLEDGE_NEW_SELLER_ACCOUNT_PENALTY', 10),
     ],
 
     // Site body-type filters (Autovit/OLX) just forward whatever category the
