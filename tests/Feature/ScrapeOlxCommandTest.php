@@ -349,3 +349,13 @@ test('builds the request URL with the confirmed OLX query params', function () {
             && str_contains($decoded, 'filter_float_enginesize:to]=2000');
     });
 });
+
+test('skips listings cheaper than price_min', function () {
+    SearchCriterion::create(['key' => 'price_min', 'value' => '6400']);
+
+    fakeOlxSearchPage('olx_search_page.html');
+
+    $this->artisan('scrape:olx', ['--pages' => 1])->assertExitCode(0);
+
+    expect(Listing::where('external_id', '309897773')->exists())->toBeFalse(); // 6350 EUR, under the minimum
+});

@@ -29,6 +29,7 @@ class ScrapeAutovit extends Command
     ): int {
         $criteria = SearchCriterion::query()->pluck('value', 'key')->all();
         $priceMax = isset($criteria['price_max']) ? (int) $criteria['price_max'] : null;
+        $priceMin = isset($criteria['price_min']) ? (int) $criteria['price_min'] : null;
         $priceCurrency = $criteria['price_currency'] ?? null;
         // No default page cap: --pages limits a run explicitly (e.g. for a quick manual
         // check); otherwise this scans every page Autovit actually has, stopping only
@@ -60,7 +61,8 @@ class ScrapeAutovit extends Command
                 // rather than being wrongly compared as if the numbers were the same unit.
                 $comparable = $priceCurrency !== null && $attributes['currency'] === $priceCurrency;
 
-                if ($priceMax !== null && $comparable && $attributes['price'] > $priceMax) {
+                if (($priceMax !== null && $comparable && $attributes['price'] > $priceMax)
+                    || ($priceMin !== null && $comparable && $attributes['price'] < $priceMin)) {
                     $filteredByPrice++;
 
                     continue;
