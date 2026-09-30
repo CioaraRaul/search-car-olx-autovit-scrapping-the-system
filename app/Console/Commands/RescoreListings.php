@@ -45,6 +45,9 @@ class RescoreListings extends Command
                 'is_damaged' => $listing->is_damaged,
                 'fuel_consumption_l_100km' => $listing->fuel_consumption_l_100km,
                 'seller_registered_year' => $listing->seller_registered_year,
+                'fuel_type' => $listing->fuel_type,
+                'engine_capacity_cc' => $listing->engine_capacity_cc,
+                'horsepower' => $listing->horsepower,
             ]);
 
             $listing->update([

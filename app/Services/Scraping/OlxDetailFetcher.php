@@ -46,7 +46,7 @@ class OlxDetailFetcher
     ];
 
     /**
-     * @return array{damaged: ?bool, fuelConsumptionL100km: ?float, sellerRegisteredYear: ?int}
+     * @return array{damaged: ?bool, fuelConsumptionL100km: ?float, sellerRegisteredYear: ?int, fuelType: ?string, engineCapacityCc: ?int, horsepower: ?int, transmission: ?string}
      */
     public function fetch(string $url): array
     {
@@ -65,11 +65,90 @@ class OlxDetailFetcher
         $html = $response->body();
         $description = $this->extractDescription($html);
 
+        $specs = $this->extractSpecs($html);
+
         return [
             'damaged' => $this->detectDamaged($description),
             'fuelConsumptionL100km' => $this->parseFuelConsumption($description),
             'sellerRegisteredYear' => $this->parseSellerRegisteredYear($this->extractMemberSince($html)),
+            'fuelType' => $this->normalizeFuel($specs['Combustibil'] ?? null),
+            'engineCapacityCc' => $this->parseNumber($specs['Capacitate motor'] ?? null),
+            'horsepower' => $this->parseNumber($specs['Putere'] ?? null),
+            'transmission' => $this->normalizeTransmission($specs['Cutie de viteze'] ?? null),
         ];
+    }
+
+    /**
+     * The ad page lists its specs as plain "<p>Label: value</p>" lines
+     * (e.g. "Combustibil: Diesel", "Putere: 150 CP"). These are what the SELLER
+     * typed, like every field on OLX — but unlike search results they include
+     * fuel, engine size, power and gearbox.
+     *
+     * @return array<string, string>
+     */
+    private function extractSpecs(string $html): array
+    {
+        $wanted = ['Combustibil', 'Capacitate motor', 'Putere', 'Cutie de viteze'];
+        $specs = [];
+
+        (new Crawler($html))->filter('p')->each(function (Crawler $p) use ($wanted, &$specs) {
+            $text = trim($p->text('', true));
+
+            foreach ($wanted as $label) {
+                if (! isset($specs[$label]) && str_starts_with($text, $label.':')) {
+                    $specs[$label] = trim(substr($text, strlen($label) + 1));
+                }
+            }
+        });
+
+        return $specs;
+    }
+
+    /** Maps OLX's Romanian fuel label onto Autovit's values (petrol, diesel, hybrid, petrol-lpg...). */
+    private function normalizeFuel(?string $raw): ?string
+    {
+        if ($raw === null) {
+            return null;
+        }
+
+        $fuel = mb_strtolower($raw);
+
+        return match (true) {
+            str_contains($fuel, 'gpl') => 'petrol-lpg',
+            str_contains($fuel, 'cng') => 'petrol-cng',
+            str_contains($fuel, 'hibrid'), str_contains($fuel, 'hybrid') => 'hybrid',
+            str_contains($fuel, 'electric') => 'electric',
+            str_contains($fuel, 'diesel'), str_contains($fuel, 'motorina') => 'diesel',
+            str_contains($fuel, 'benzin') => 'petrol',
+            default => null,
+        };
+    }
+
+    private function normalizeTransmission(?string $raw): ?string
+    {
+        if ($raw === null) {
+            return null;
+        }
+
+        $value = mb_strtolower($raw);
+
+        return match (true) {
+            str_contains($value, 'manual') => 'manual',
+            str_contains($value, 'automat') => 'automatic',
+            default => null,
+        };
+    }
+
+    /** "2 000 cm³" -> 2000, "150 CP" -> 150. */
+    private function parseNumber(?string $raw): ?int
+    {
+        if ($raw === null) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D/', '', $raw);
+
+        return $digits === '' ? null : (int) $digits;
     }
 
     /**

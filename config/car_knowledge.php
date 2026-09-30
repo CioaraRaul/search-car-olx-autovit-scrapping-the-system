@@ -24,6 +24,15 @@ return [
         'penalty' => 100,
     ],
 
+    // "Only cars for my needs" (car-buyer-profile skill): mostly short city trips, young
+    // driver (RCA + road tax grow with engine size/power). All absolute exclusions.
+    // 1650 cc allows real-world 1.6 L engines (1.591-1.618 L) but not a 1.8/2.0.
+    'needs_fit' => [
+        'max_engine_cc' => (int) env('CAR_KNOWLEDGE_MAX_ENGINE_CC', 1650),
+        'max_horsepower' => (int) env('CAR_KNOWLEDGE_MAX_HORSEPOWER', 130),
+        'penalty' => (int) env('CAR_KNOWLEDGE_NEEDS_FIT_PENALTY', 100),
+    ],
+
     'low_mileage' => [
         'expected_km_per_year' => (int) env('CAR_KNOWLEDGE_EXPECTED_KM_PER_YEAR', 15000),
         'suspicious_ratio' => (float) env('CAR_KNOWLEDGE_LOW_MILEAGE_RATIO', 0.3),

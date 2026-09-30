@@ -102,7 +102,14 @@ class ScrapeOlx extends Command
                     ->where('external_id', $attributes['external_id'])
                     ->first();
 
-                if ($existing !== null && $existing->detail_checked_at !== null) {
+                // fuel_type null means this ad was checked before its spec lines (fuel, engine
+                // size, power, gearbox) were being read, so it is fetched again (within the
+                // daily cap) to fill them in — needed by the needs-fit filter.
+                if ($existing !== null && $existing->detail_checked_at !== null && $existing->fuel_type !== null) {
+                    $attributes['fuel_type'] = $existing->fuel_type;
+                    $attributes['engine_capacity_cc'] = $existing->engine_capacity_cc;
+                    $attributes['horsepower'] = $existing->horsepower;
+                    $attributes['transmission'] = $existing->transmission;
                     $attributes['is_damaged'] = $existing->is_damaged;
                     $attributes['fuel_consumption_l_100km'] = $existing->fuel_consumption_l_100km;
                     $attributes['seller_registered_year'] = $existing->seller_registered_year;
@@ -130,6 +137,10 @@ class ScrapeOlx extends Command
                         $attributes['is_damaged'] = $details['damaged'];
                         $attributes['fuel_consumption_l_100km'] = $details['fuelConsumptionL100km'];
                         $attributes['seller_registered_year'] = $details['sellerRegisteredYear'];
+                        $attributes['fuel_type'] = $details['fuelType'];
+                        $attributes['engine_capacity_cc'] = $details['engineCapacityCc'];
+                        $attributes['horsepower'] = $details['horsepower'];
+                        $attributes['transmission'] = $details['transmission'];
                         $attributes['detail_checked_at'] = now();
 
                         Cache::put(
@@ -163,6 +174,18 @@ class ScrapeOlx extends Command
 
                 if ($reliability->score < $rejectBelowScore) {
                     $rejectedByReliability++;
+
+                    // An already-saved listing that now fails must not keep its old passing
+                    // score (the email gate reads it) — record the new score and any detail
+                    // data just learned, so it is excluded from now on.
+                    $existing?->update([
+                        'reliability_score' => $reliability->score,
+                        'reliability_flags' => $reliability->flagsToArray(),
+                        'reliability_scored_at' => now(),
+                        'fuel_type' => $attributes['fuel_type'] ?? $existing->fuel_type,
+                        'engine_capacity_cc' => $attributes['engine_capacity_cc'] ?? $existing->engine_capacity_cc,
+                        'horsepower' => $attributes['horsepower'] ?? $existing->horsepower,
+                    ]);
 
                     continue;
                 }

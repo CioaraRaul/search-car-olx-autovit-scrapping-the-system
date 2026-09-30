@@ -14,6 +14,9 @@ uses(RefreshDatabase::class);
 beforeEach(function () {
     Cache::flush();
 
+    // Fixtures are diesel/2.0 L cars; the needs-fit rule has its own tests.
+    config(['car_knowledge.needs_fit.penalty' => 0]);
+
     // The real 3-8s random delay between detail-page fetches (config default) would
     // make this whole suite take minutes; keep the mechanism but make it instant here.
     config([
@@ -247,6 +250,7 @@ test('reuses an already-checked listing\'s stored detail data instead of re-fetc
         'is_damaged' => false,
         'fuel_consumption_l_100km' => 5.5,
         'detail_checked_at' => now()->subDay(),
+        'fuel_type' => 'petrol', // already has its spec data, so no re-fetch is needed
     ]);
 
     Http::fake([
@@ -358,4 +362,48 @@ test('skips listings cheaper than price_min', function () {
     $this->artisan('scrape:olx', ['--pages' => 1])->assertExitCode(0);
 
     expect(Listing::where('external_id', '309897773')->exists())->toBeFalse(); // 6350 EUR, under the minimum
+});
+
+test('saves the fuel, engine size, power and gearbox read from the ad page, and rejects a diesel', function () {
+    config(['car_knowledge.needs_fit.penalty' => 100]);
+
+    // Every ad page in this run says "Combustibil: Diesel" — the needs-fit rule must reject them all.
+    Http::fake([
+        'https://www.olx.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        'https://www.olx.ro/d/oferta/*' => Http::response(
+            '<html><body><div data-testid="ad_description"><div>x</div></div><p>Combustibil: Diesel</p><p>Putere: 90 CP</p></body></html>',
+            200,
+        ),
+        'https://www.olx.ro/auto-masini-moto-ambarcatiuni/autoturisme/*' => Http::response(
+            file_get_contents(base_path('tests/Fixtures/olx_search_page.html')),
+            200,
+        ),
+    ]);
+
+    $this->artisan('scrape:olx', ['--pages' => 1])->assertExitCode(0);
+
+    expect(Listing::count())->toBe(0);
+});
+
+test('an already-saved listing that now fails needs-fit gets its score lowered, so the email skips it', function () {
+    config(['car_knowledge.needs_fit.penalty' => 100]);
+    $saved = Listing::create([
+        'source' => 'olx', 'external_id' => '309897773', 'title' => 'Old', 'price' => 6350,
+        'currency' => 'EUR', 'url' => 'https://example.test/x', 'reliability_score' => 100,
+        'detail_checked_at' => now(), 'fuel_type' => null,
+    ]);
+
+    Http::fake([
+        'https://www.olx.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        'https://www.olx.ro/d/oferta/*' => Http::response('<html><body><p>Combustibil: Diesel</p></body></html>', 200),
+        'https://www.olx.ro/auto-masini-moto-ambarcatiuni/autoturisme/*' => Http::response(
+            file_get_contents(base_path('tests/Fixtures/olx_search_page.html')),
+            200,
+        ),
+    ]);
+
+    $this->artisan('scrape:olx', ['--pages' => 1])->assertExitCode(0);
+
+    expect($saved->fresh()->reliability_score)->toBeLessThan(90)
+        ->and($saved->fresh()->fuel_type)->toBe('diesel');
 });
