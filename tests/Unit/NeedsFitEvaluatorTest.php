@@ -34,19 +34,29 @@ test('the structured fuel type wins over words in the text', function () {
     expect(needsFitRules(['title' => 'Logan', 'fuel_type' => 'petrol', 'description' => 'nu e dCi, e benzina']))->toBe([]);
 });
 
-test('rejects an engine bigger than 1.6 L', function () {
-    expect(needsFitRules(['title' => 'Ford Mondeo', 'engine_capacity_cc' => 2000, 'fuel_type' => 'petrol']))
+test('rejects an engine bigger than 2.0 L but accepts 2.0 and below', function () {
+    expect(needsFitRules(['title' => 'Ford Mondeo', 'engine_capacity_cc' => 2261, 'fuel_type' => 'petrol']))
         ->toContain('engine-too-large');
-    expect(needsFitRules(['title' => 'Octavia', 'engine_capacity_cc' => 1598, 'fuel_type' => 'petrol']))->toBe([]);
+    expect(needsFitRules(['title' => 'Mazda 6', 'engine_capacity_cc' => 1998, 'fuel_type' => 'petrol']))->toBe([])
+        ->and(needsFitRules(['title' => 'Octavia', 'engine_capacity_cc' => 1598, 'fuel_type' => 'petrol']))->toBe([])
+        ->and(needsFitRules(['title' => 'Opel Astra', 'engine_capacity_cc' => 2000, 'fuel_type' => 'petrol']))->toBe([]);
 });
 
 test('reads the engine size from the title when the field is missing', function () {
-    expect(needsFitRules(['title' => 'Ford Mondeo 2.0 benzina', 'fuel_type' => null]))->toContain('engine-too-large')
+    expect(needsFitRules(['title' => 'Ford Mondeo 2.5 benzina', 'fuel_type' => null]))->toContain('engine-too-large')
+        ->and(needsFitRules(['title' => 'Mazda 6 2.0 benzina', 'fuel_type' => null]))->toBe([])
         ->and(needsFitRules(['title' => 'Logan 2014 GPL Km 85.913', 'fuel_type' => null]))->toBe([])
         ->and(needsFitRules(['title' => 'Logan fabricatie 11.2014', 'fuel_type' => null]))->toBe([]);
 });
 
-test('rejects more than 130 HP, from the field or the text', function () {
+test('has no power limit by default, so a strong petrol engine is not rejected', function () {
+    expect(needsFitRules(['title' => 'Toyota Avensis 1.8', 'horsepower' => 147, 'fuel_type' => 'petrol']))->toBe([])
+        ->and(needsFitRules(['title' => 'Astra 180 CP benzina', 'fuel_type' => null]))->toBe([]);
+});
+
+test('a power limit applies only when one is configured', function () {
+    config(['car_knowledge.needs_fit.max_horsepower' => 130]);
+
     expect(needsFitRules(['title' => 'Astra', 'horsepower' => 140, 'fuel_type' => 'petrol']))->toContain('too-powerful')
         ->and(needsFitRules(['title' => 'Astra 150 CP benzina', 'fuel_type' => null]))->toContain('too-powerful')
         ->and(needsFitRules(['title' => 'Logan 90 CP benzina', 'fuel_type' => null]))->toBe([]);

@@ -24,13 +24,21 @@ return [
         'penalty' => 100,
     ],
 
-    // "Only cars for my needs" (car-buyer-profile skill): mostly short city trips, young
-    // driver (RCA + road tax grow with engine size/power). All absolute exclusions.
-    // 1650 cc allows real-world 1.6 L engines (1.591-1.618 L) but not a 1.8/2.0.
+    // Buyer's rule: no engine over 2.0 L, and diesel is unsuited to short trips. There is NO
+    // power limit by default (max_horsepower 0 = off) — engine quality is judged by the
+    // reliability rules instead. All flags here are absolute exclusions.
     'needs_fit' => [
-        'max_engine_cc' => (int) env('CAR_KNOWLEDGE_MAX_ENGINE_CC', 1650),
-        'max_horsepower' => (int) env('CAR_KNOWLEDGE_MAX_HORSEPOWER', 130),
+        'max_engine_cc' => (int) env('CAR_KNOWLEDGE_MAX_ENGINE_CC', 2000),
+        'max_horsepower' => (int) env('CAR_KNOWLEDGE_MAX_HORSEPOWER', 0),
         'penalty' => (int) env('CAR_KNOWLEDGE_NEEDS_FIT_PENALTY', 100),
+    ],
+
+    // Looks can't be judged for free at scrape time, so a photo review (the
+    // car-looks-evaluator skill) stores looks_score per car. A reviewed car scoring
+    // below min_score (ugly, dented, rusty, dirty interior) is never emailed; a car
+    // not reviewed yet is still sent, marked "not reviewed".
+    'looks' => [
+        'min_score' => (int) env('CAR_KNOWLEDGE_LOOKS_MIN_SCORE', 60),
     ],
 
     'low_mileage' => [

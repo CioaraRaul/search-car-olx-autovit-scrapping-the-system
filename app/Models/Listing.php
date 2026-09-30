@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'city', 'url', 'photos', 'description', 'notified_at',
     'reliability_score', 'reliability_flags', 'reliability_scored_at',
     'is_damaged', 'fuel_consumption_l_100km', 'detail_checked_at', 'seller_registered_year',
+    'looks_score', 'looks_notes', 'looks_scored_at',
 ])]
 class Listing extends Model
 {
@@ -31,6 +32,7 @@ class Listing extends Model
             'is_damaged' => 'boolean',
             'fuel_consumption_l_100km' => 'decimal:1',
             'detail_checked_at' => 'datetime',
+            'looks_scored_at' => 'datetime',
         ];
     }
 

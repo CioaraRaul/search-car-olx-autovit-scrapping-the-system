@@ -21,11 +21,31 @@ progress in a way that's readable without digging through `git log`.
   listings saved earlier, so nothing rejected by today's rules is ever emailed (they stay in the
   database, unnotified, not deleted).
 
+### Added (looks review, 2026-09-30)
+- **`car-looks-evaluator` skill** (`.claude/skills/car-looks-evaluator/SKILL.md`): reviews a car's ad
+  photos like a careful buyer — paint, panel gaps, rust, wheels, interior wear, and whether the photos
+  match the ad — and stores a 0-100 looks score. Looks can't be judged for free during the unattended
+  07:00 scrape, so this runs on demand over the few cars that already passed every other filter.
+- **Three helper commands**: `listings:shortlist` (cars passing every current filter that have no looks
+  review yet), `listings:photos <id>` (downloads the ad's real gallery — the stored photos are only
+  search thumbnails, OLX's often a "no thumbnail" placeholder) and `listings:looks-set <id> <score>
+  <notes>` (saves the review). New `looks_score`, `looks_notes`, `looks_scored_at` columns.
+- **The email** now shows each car's engine (fuel, cc, HP) and its looks review (or "not reviewed yet"),
+  and never includes a car reviewed below `CAR_KNOWLEDGE_LOOKS_MIN_SCORE` (default 60).
+
+### Changed
+- The "which saved listings are still good enough" logic moved out of `ListingsDigestNotifier` into
+  `ListingShortlist`, so the email and the looks-review shortlist always apply identical rules.
+
+### Fixed
+- **Needs-fit limits corrected:** the engine limit is now 2.0 L (was 1.6 L) and there is no horsepower
+  limit by default (was 130 HP). Both had been my own suggestions, not the buyer's rules.
+
 ### Added (needs-fit filter, 2026-09-30)
 - **"Only cars for my needs" filter** (`NeedsFitEvaluator`, from the `car-buyer-profile` skill). Each of
   these rejects a car on its own: **diesel** (the DPF/EGR clog on short city trips and ~8,000 km a
-  year never repays the repair risk), **engine above 1.6 L** (1650 cc) and **more than 130 HP**
-  (RCA insurance and road tax rise for a young driver). Uses the structured fields when known and
+  year never repays the repair risk) and **an engine above 2.0 L** (first shipped as 1.6 L + 130 HP, corrected the same day to the buyer's stated "no more than 2.0 L" — there is no power limit unless `CAR_KNOWLEDGE_MAX_HORSEPOWER` is set)
+  Uses the structured fields when known and
   falls back to the title/description text (engine-code words like dCi/TDI/CDTI/HDi/D-4D, "1.5D",
   "150 CP", "2.0"); a value unknown everywhere is not rejected. Tunable with
   `CAR_KNOWLEDGE_MAX_ENGINE_CC`, `CAR_KNOWLEDGE_MAX_HORSEPOWER`; `CAR_KNOWLEDGE_NEEDS_FIT_PENALTY=0`
