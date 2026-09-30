@@ -11,7 +11,7 @@ use App\Services\Reliability\ReliabilityFlag;
  *
  *  - Diesel: DPF/EGR clog on short trips, and ~8,000 km/year never earns back
  *    the higher repair risk.
- *  - Engine bigger than max_engine_cc or stronger than max_horsepower: pricier
+ *  - Engine bigger than max_engine_cc (2.0 L) or, only if configured, stronger than max_horsepower: pricier
  *    RCA, road tax and fuel.
  *
  * Uses the structured fields when known (Autovit always; OLX once its ad page
@@ -65,7 +65,7 @@ class NeedsFitEvaluator implements ReliabilityRuleEvaluator
 
         $hp = $this->horsepower($listing, $text);
 
-        if ($hp !== null && $hp > $config['max_horsepower']) {
+        if ($config['max_horsepower'] > 0 && $hp !== null && $hp > $config['max_horsepower']) {
             $flags[] = new ReliabilityFlag(
                 'too-powerful',
                 "{$hp} HP is above {$config['max_horsepower']} HP — RCA insurance rises sharply with power for a young driver.",
