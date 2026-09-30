@@ -4,6 +4,28 @@ Every implemented change gets an entry here, in plain language — what changed 
 separate from git commit messages: commits describe a diff, this describes the project's
 progress in a way that's readable without digging through `git log`.
 
+## 2026-09-30
+
+### Changed
+- **Body-type check is now a whitelist, not a blacklist.** A BMW Seria 2 (a coupe / Active Tourer,
+  never a sedan or estate) passed the `sedan,break` criterion because the old check only knew 23
+  hatchback models and the sites just repeat what the seller ticked. `BodyTypeGuard` replaces
+  `BodyTypeMismatchDetector`: a listing is accepted only if its title names a model that is really
+  a sedan/estate and a reliable, cheap-to-repair buy (Dacia Logan, Skoda Octavia/Rapid, Toyota
+  Avensis, Honda Accord, Mazda 6, VW Jetta/Passat, ...). Models sold in several body styles
+  (Focus, Astra, Golf, Corolla, ...) need "combi/sedan/break..." in the title. Anything unlisted
+  is rejected. Premium brands (BMW, Audi, Mercedes, Volvo, ...) and coupe/hatch/SUV keywords are
+  rejected outright because their repairs cost far more. The list lives in
+  `config/car_knowledge.php` (`body_type_guard`) so a valid model can be added in one line.
+- **The email re-checks saved listings.** `notify:send` now applies the same whitelist to
+  listings saved earlier, so nothing rejected by today's rules is ever emailed (they stay in the
+  database, unnotified, not deleted).
+
+### Added
+- **One email per car.** The same car posted on both OLX and Autovit (same year, mileage and price)
+  is emailed once, and never again if a twin was already sent.
+
+
 ## 2026-09-29
 
 ### Added

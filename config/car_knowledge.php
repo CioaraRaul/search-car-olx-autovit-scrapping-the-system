@@ -54,39 +54,77 @@ return [
     ],
 
     // Site body-type filters (Autovit/OLX) just forward whatever category the
-    // SELLER picked when posting the ad — there's no independent verification,
-    // so a mislabeled listing (e.g. a hatchback tagged "sedan") can pass a
-    // body_type=sedan,break criterion. This is a conservative list of models
-    // that have never been sold as a sedan or estate in this market, used to
-    // catch that specific, common mislabeling. Keyword groups match the same
-    // way as `reliability_rules.keywords` (every keyword in a group must be
-    // present in the title). Not DB-editable like reliability_rules because
-    // it's fixed domain knowledge, not something tuned per search.
-    'body_type_mismatch' => [
-        'hatchback_only_models' => [
-            ['vw', 'polo'],
-            ['volkswagen', 'polo'],
+    // SELLER picked when posting the ad, so they can't be trusted — a BMW Seria 2
+    // coupe/Active Tourer passed a sedan/break filter. So we keep our OWN
+    // WHITELIST: a listing is accepted only if its title names a make+model that
+    // is (a) really sold as a sedan or estate, and (b) a sensible buy for this
+    // buyer (reliable, cheap to repair/insure in Romania — see the
+    // car-buyer-profile skill). Anything unlisted is rejected, and the run
+    // summary counts it so a valid model can be added here. Keyword groups match
+    // as whole words, case-insensitive; every keyword in a group must be present.
+    'body_type_guard' => [
+        // Repair/parts/RCA costs are far higher than mainstream brands — never
+        // recommended, even if a future whitelist edit would otherwise match.
+        'premium_brands' => [
+            'bmw', 'audi', 'mercedes', 'mercedes-benz', 'volvo', 'lexus', 'porsche', 'jaguar',
+            'land rover', 'range rover', 'infiniti', 'maserati', 'alfa romeo', 'mini', 'tesla',
+            'cadillac', 'bentley', 'saab', 'jeep',
+        ],
+
+        // A title containing any of these is rejected outright (not a sedan/estate).
+        'rejected_keywords' => [
+            'hatchback', 'hatch', 'coupe', 'cabrio', 'cabriolet', 'roadster', 'sportback',
+            'spaceback', 'gran coupe', 'gran tourer', 'active tourer', 'suv', 'crossover',
+            'monovolum', 'minivan', 'mpv', '3 usi', '5 usi', '3 uși', '5 uși',
+        ],
+
+        // Words that confirm a sedan or estate body in the title.
+        'body_keywords' => [
+            'sedan', 'limuzina', 'combi', 'kombi', 'break', 'estate', 'wagon', 'variant',
+            'touring', 'tourer', 'sw', 'caravan', 'grandtour', 'turnier', 'sports tourer',
+            'sportstourer',
+        ],
+
+        // Models that are only ever sold as sedan/estate in this market (year >= 2013).
+        'always_sedan_or_estate' => [
+            ['dacia', 'logan'],
+            ['skoda', 'octavia'],
+            ['skoda', 'rapid'],
+            ['toyota', 'avensis'],
+            ['toyota', 'auris', 'touring'],
+            ['honda', 'accord'],
+            ['mazda', '6'],
+            ['hyundai', 'elantra'],
+            ['hyundai', 'i40'],
+            ['kia', 'optima'],
+            ['vw', 'jetta'],
+            ['volkswagen', 'jetta'],
+            ['vw', 'passat'],
+            ['volkswagen', 'passat'],
+            ['renault', 'fluence'],
+            ['renault', 'symbol'],
+            ['peugeot', '301'],
+            ['citroen', 'c-elysee'],
+            ['citroen', 'elysee'],
+        ],
+
+        // Models sold in several body styles: accepted only when the title also
+        // says sedan/estate (a body keyword), otherwise we can't tell and reject.
+        'needs_body_keyword' => [
+            ['toyota', 'corolla'],
+            ['mazda', '3'],
+            ['hyundai', 'i30'],
+            ['kia', 'ceed'],
+            ['kia', "cee'd"],
             ['vw', 'golf'],
             ['volkswagen', 'golf'],
-            ['vw', 'up'],
-            ['volkswagen', 'up'],
-            ['ford', 'fiesta'],
-            ['ford', 'ka'],
-            ['renault', 'clio'],
-            ['renault', 'twingo'],
-            ['opel', 'corsa'],
-            ['toyota', 'yaris'],
-            ['toyota', 'aygo'],
-            ['hyundai', 'i10'],
-            ['hyundai', 'i20'],
-            ['kia', 'picanto'],
-            ['kia', 'rio'],
-            ['seat', 'ibiza'],
+            ['ford', 'focus'],
+            ['ford', 'mondeo'],
+            ['opel', 'astra'],
+            ['renault', 'megane'],
             ['skoda', 'fabia'],
-            ['peugeot', '108'],
-            ['peugeot', '208'],
-            ['citroen', 'c3'],
-            ['suzuki', 'swift'],
+            ['fiat', 'tipo'],
+            ['mitsubishi', 'lancer'],
         ],
     ],
 
