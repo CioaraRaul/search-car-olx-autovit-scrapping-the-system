@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Listing;
 use App\Models\SearchCriterion;
-use App\Services\Reliability\BodyTypeMismatchDetector;
+use App\Services\Reliability\BodyTypeGuard;
 use App\Services\Reliability\ReliabilityScorer;
 use App\Services\Scraping\OlxClient;
 use App\Services\Scraping\OlxDetailFetcher;
@@ -25,7 +25,7 @@ class ScrapeOlx extends Command
         OlxListingMapper $mapper,
         OlxDetailFetcher $detailFetcher,
         ReliabilityScorer $scorer,
-        BodyTypeMismatchDetector $bodyTypeMismatchDetector,
+        BodyTypeGuard $bodyTypeGuard,
     ): int {
         $criteria = SearchCriterion::query()->pluck('value', 'key')->all();
         $priceMax = isset($criteria['price_max']) ? (int) $criteria['price_max'] : null;
@@ -85,7 +85,7 @@ class ScrapeOlx extends Command
                 // tagged "sedan") can pass a body_type=sedan,break criterion. Checked here,
                 // before the detail-page fetch, so a listing we're rejecting anyway never
                 // spends part of the daily detail-fetch budget.
-                if (isset($criteria['body_type']) && $bodyTypeMismatchDetector->isHatchbackOnlyModel($attributes['title'] ?? '')) {
+                if (isset($criteria['body_type']) && $bodyTypeGuard->isAcceptable($attributes['title'] ?? '') === false) {
                     $filteredByBodyTypeMismatch++;
 
                     continue;

@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\ListingSource;
 use App\Mail\ListingsDigest;
+use App\Models\SearchCriterion;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 
@@ -40,6 +42,45 @@ test('fails with a clear message and sends nothing when NOTIFY_RECIPIENT_EMAIL i
     makeListing(['external_id' => 'unnotified-2']);
 
     $this->artisan('notify:send')->assertExitCode(1);
+
+    Mail::assertNothingSent();
+});
+
+test('never emails a listing the current body-type whitelist rejects, e.g. a BMW Seria 2', function () {
+    SearchCriterion::create(['key' => 'body_type', 'value' => 'sedan,break']);
+    $bmw = makeListing(['external_id' => 'bmw-1', 'title' => 'BMW Seria 2 218i 2015']);
+    $logan = makeListing(['external_id' => 'logan-1', 'title' => 'Dacia Logan 0.9 TCe GPL']);
+
+    $this->artisan('notify:send')->assertExitCode(0);
+
+    Mail::assertSent(ListingsDigest::class, function (ListingsDigest $mail) use ($bmw, $logan) {
+        $ids = $mail->listings->pluck('id');
+
+        return $ids->contains($logan->id) && ! $ids->contains($bmw->id);
+    });
+    expect($bmw->fresh()->notified_at)->toBeNull();
+});
+
+test('emails a car cross-posted on OLX and Autovit only once', function () {
+    $olx = makeListing(['external_id' => 'x-olx', 'year' => 2015, 'mileage_km' => 184000, 'price' => 7000]);
+    $autovit = makeListing([
+        'source' => ListingSource::Autovit, 'external_id' => 'x-autovit',
+        'year' => 2015, 'mileage_km' => 184000, 'price' => 7000,
+    ]);
+
+    $this->artisan('notify:send')->assertExitCode(0);
+
+    Mail::assertSent(ListingsDigest::class, fn (ListingsDigest $mail) => $mail->listings->count() === 1);
+});
+
+test('does not email a duplicate of a car that was already emailed', function () {
+    makeListing(['external_id' => 'sent', 'year' => 2015, 'mileage_km' => 184000, 'price' => 7000, 'notified_at' => now()]);
+    makeListing([
+        'source' => ListingSource::Autovit, 'external_id' => 'dupe',
+        'year' => 2015, 'mileage_km' => 184000, 'price' => 7000,
+    ]);
+
+    $this->artisan('notify:send')->assertExitCode(0);
 
     Mail::assertNothingSent();
 });

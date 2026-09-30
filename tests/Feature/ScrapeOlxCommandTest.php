@@ -27,7 +27,6 @@ beforeEach(function () {
     SearchCriterion::create(['key' => 'year_min', 'value' => '2013']);
     SearchCriterion::create(['key' => 'km_max', 'value' => '230000']);
     SearchCriterion::create(['key' => 'engine_capacity_max', 'value' => '2.0']);
-    SearchCriterion::create(['key' => 'body_type', 'value' => 'sedan,break']);
 
     Http::fake([
         'https://www.olx.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
@@ -308,12 +307,14 @@ test('a non-403/429 detail-fetch failure still fails the command loudly', functi
 });
 
 test('filters out a hatchback-only model when body_type restricts to sedan/break', function () {
+    SearchCriterion::create(['key' => 'body_type', 'value' => 'sedan,break']);
+
     fakeOlxSearchPage('olx_search_page_body_type.html');
 
     $this->artisan('scrape:olx', ['--pages' => 1])->assertExitCode(0);
 
-    expect(Listing::where('external_id', '9300000001')->exists())->toBeFalse() // Polo: hatchback-only
-        ->and(Listing::where('external_id', '9300000002')->exists())->toBeTrue(); // Superb: unaffected
+    expect(Listing::where('external_id', '9300000001')->exists())->toBeFalse() // Polo: not on the sedan/estate whitelist
+        ->and(Listing::where('external_id', '9300000002')->exists())->toBeTrue(); // Octavia: whitelisted
 });
 
 test('does not filter by body-type mismatch when no body_type criterion is set', function () {
@@ -327,6 +328,7 @@ test('does not filter by body-type mismatch when no body_type criterion is set',
 });
 
 test('builds the request URL with the confirmed OLX query params', function () {
+    SearchCriterion::create(['key' => 'body_type', 'value' => 'sedan,break']);
     fakeOlxSearchPage('olx_search_page.html');
 
     $this->artisan('scrape:olx', ['--pages' => 1])->assertExitCode(0);
