@@ -16,9 +16,13 @@ final class CriteriaCatalog
                 'type' => 'int',
                 'description' => 'Maximum price you are willing to pay.',
             ],
+            'price_min' => [
+                'type' => 'int',
+                'description' => 'Minimum price — cheaper listings are skipped (too-cheap cars are usually scams or hidden problems).',
+            ],
             'price_currency' => [
                 'type' => 'string',
-                'description' => 'Currency price_max is expressed in (e.g. EUR).',
+                'description' => 'Currency price_min and price_max are expressed in (e.g. EUR).',
             ],
             'year_min' => [
                 'type' => 'int',

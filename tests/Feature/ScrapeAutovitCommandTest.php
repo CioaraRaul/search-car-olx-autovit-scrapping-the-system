@@ -358,3 +358,13 @@ test('builds the request URL without price or order params, per robots.txt', fun
             && str_contains($decoded, 'filter_enum_body_type][1]=combi');
     });
 });
+
+test('skips EUR listings cheaper than price_min', function () {
+    SearchCriterion::create(['key' => 'price_min', 'value' => '7000']);
+
+    fakeAutovitSearchPage('autovit_search_page.html');
+
+    $this->artisan('scrape:autovit', ['--pages' => 1])->assertExitCode(0);
+
+    expect(Listing::where('currency', 'EUR')->count())->toBe(0);
+});

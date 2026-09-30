@@ -47,6 +47,15 @@ class ListingsDigestNotifier
     private function passingCurrentFilters(Collection $listings): Collection
     {
         $bodyTypeSet = SearchCriterion::where('key', 'body_type')->exists();
+        $priceMin = SearchCriterion::where('key', 'price_min')->value('value');
+        $priceCurrency = SearchCriterion::where('key', 'price_currency')->value('value');
+
+        // Listings saved before price_min existed may be cheaper than it now allows.
+        $listings = $listings->reject(
+            fn (Listing $l) => $priceMin !== null
+                && $l->currency === $priceCurrency
+                && $l->price < (int) $priceMin,
+        );
 
         return $listings->filter(
             fn (Listing $listing) => $this->meetsReliabilityThreshold($listing)

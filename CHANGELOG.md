@@ -21,6 +21,13 @@ progress in a way that's readable without digging through `git log`.
   listings saved earlier, so nothing rejected by today's rules is ever emailed (they stay in the
   database, unnotified, not deleted).
 
+### Added
+- **`price_min` search criterion** (set to 5000 EUR): listings cheaper than this are skipped by both
+  scrapers and never emailed (`notify:send` re-checks already-saved ones). Too-cheap cars are
+  usually scams or hide expensive problems. Set with `php artisan criteria:set price_min 5000`;
+  it appears in `criteria:help`. Filtered client-side, like `price_max`, and only when the listing's
+  currency matches `price_currency`.
+
 ### Changed (strict reliability filter, 2026-09-30)
 - **Reject threshold is now 90** (was 60). Only cars with at most one minor (10-point) flag are
   saved or emailed. The new-seller-account flag dropped from 20 to 10 points so a first-time seller

@@ -97,3 +97,18 @@ test('never emails a listing whose reliability score is below the threshold', fu
         return $ids->contains($good->id) && ! $ids->contains($bad->id);
     });
 });
+
+test('never emails a listing cheaper than the price_min criterion', function () {
+    SearchCriterion::create(['key' => 'price_min', 'value' => '5000']);
+    SearchCriterion::create(['key' => 'price_currency', 'value' => 'EUR']);
+    $cheap = makeListing(['external_id' => 'cheap-1', 'price' => 2500]);
+    $fine = makeListing(['external_id' => 'fine-1', 'price' => 5500]);
+
+    $this->artisan('notify:send')->assertExitCode(0);
+
+    Mail::assertSent(ListingsDigest::class, function (ListingsDigest $mail) use ($cheap, $fine) {
+        $ids = $mail->listings->pluck('id');
+
+        return $ids->contains($fine->id) && ! $ids->contains($cheap->id);
+    });
+});
