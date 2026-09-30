@@ -9,6 +9,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
+// These tests use diesel/2.0 titles to exercise other rules; the needs-fit rule is covered by
+// tests/Unit/NeedsFitEvaluatorTest.php and its own scorer test below.
+beforeEach(fn () => config(['car_knowledge.needs_fit.penalty' => 0]));
+
 function makeReliabilityListing(array $overrides = []): Listing
 {
     return Listing::create(array_merge([
@@ -299,7 +303,7 @@ test('the seeded rules flag well-known problem engines and gearboxes but not goo
     'Dacia EDC' => ['Dacia Logan Renault EDC', true],
     'Opel 1.4 turbo' => ['Opel Astra 1.4 Turbo sedan', true],
     'Good: Logan 0.9 TCe' => ['Dacia Logan 0.9 TCe GPL', false],
-    'Good: Toyota Avensis 1.8' => ['Toyota Avensis 1.8 benzina', false],
+    'Good: Toyota Avensis 1.8' => ['Toyota Avensis 1.6 benzina', false],
     'Good: Logan 1.2 16v' => ['Dacia Logan 1.2 16v', false],
     'Good: Skoda Rapid manual' => ['Skoda Rapid 1.2 TSI manual', false],
 ]);

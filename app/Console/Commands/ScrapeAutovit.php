@@ -141,6 +141,18 @@ class ScrapeAutovit extends Command
                 if ($reliability->score < $rejectBelowScore) {
                     $rejectedByReliability++;
 
+                    // An already-saved listing that now fails must not keep its old passing
+                    // score (the email gate reads it) — record the new score and any detail
+                    // data just learned, so it is excluded from now on.
+                    $existing?->update([
+                        'reliability_score' => $reliability->score,
+                        'reliability_flags' => $reliability->flagsToArray(),
+                        'reliability_scored_at' => now(),
+                        'fuel_type' => $attributes['fuel_type'] ?? $existing->fuel_type,
+                        'engine_capacity_cc' => $attributes['engine_capacity_cc'] ?? $existing->engine_capacity_cc,
+                        'horsepower' => $attributes['horsepower'] ?? $existing->horsepower,
+                    ]);
+
                     continue;
                 }
 

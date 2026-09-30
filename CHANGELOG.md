@@ -21,6 +21,24 @@ progress in a way that's readable without digging through `git log`.
   listings saved earlier, so nothing rejected by today's rules is ever emailed (they stay in the
   database, unnotified, not deleted).
 
+### Added (needs-fit filter, 2026-09-30)
+- **"Only cars for my needs" filter** (`NeedsFitEvaluator`, from the `car-buyer-profile` skill). Each of
+  these rejects a car on its own: **diesel** (the DPF/EGR clog on short city trips and ~8,000 km a
+  year never repays the repair risk), **engine above 1.6 L** (1650 cc) and **more than 130 HP**
+  (RCA insurance and road tax rise for a young driver). Uses the structured fields when known and
+  falls back to the title/description text (engine-code words like dCi/TDI/CDTI/HDi/D-4D, "1.5D",
+  "150 CP", "2.0"); a value unknown everywhere is not rejected. Tunable with
+  `CAR_KNOWLEDGE_MAX_ENGINE_CC`, `CAR_KNOWLEDGE_MAX_HORSEPOWER`; `CAR_KNOWLEDGE_NEEDS_FIT_PENALTY=0`
+  switches it off.
+- **OLX fuel, engine size, power and gearbox are now read from each ad's own page** (plain
+  "Combustibil: Diesel" / "Putere: 150 CP" lines) and stored. OLX search results never carried them
+  (872 saved listings had no fuel type). Already-saved OLX listings without a fuel type are fetched
+  again, a few at a time within the daily detail-fetch cap, until they are filled in.
+
+### Fixed
+- **A saved listing that now fails a rule kept its old passing score**, so the email still sent it.
+  Both scrapers now record the new score on an already-saved listing they reject.
+
 ### Added
 - **`price_min` search criterion** (set to 5000 EUR): listings cheaper than this are skipped by both
   scrapers and never emailed (`notify:send` re-checks already-saved ones). Too-cheap cars are

@@ -14,6 +14,9 @@ uses(RefreshDatabase::class);
 beforeEach(function () {
     Cache::flush();
 
+    // Fixtures are diesel/2.0 L cars; the needs-fit rule has its own tests.
+    config(['car_knowledge.needs_fit.penalty' => 0]);
+
     // The real 3-8s random delay between detail-page fetches (config default) would
     // make this whole suite take minutes; keep the mechanism but make it instant here.
     config([

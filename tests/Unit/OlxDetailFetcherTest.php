@@ -132,3 +132,33 @@ test('detectDamaged returns false for an explicit "neaccidentata" title', functi
 
     expect($result)->toBeFalse();
 });
+
+test('reads fuel, engine size, power and gearbox from the ad page spec lines', function () {
+    $url = 'https://www.olx.ro/d/oferta/test-IDspecs.html';
+    Http::fake([
+        $url => Http::response(
+            '<html><body><div data-testid="ad_description"><div>text</div></div>'
+            .'<p>Capacitate motor: 1 598 cm³</p><p>Putere: 110 CP</p><p>Combustibil: Benzina + GPL</p>'
+            .'<p>Cutie de viteze: Manuala</p></body></html>',
+            200,
+        ),
+    ]);
+
+    $result = (new OlxDetailFetcher)->fetch($url);
+
+    expect($result['fuelType'])->toBe('petrol-lpg')
+        ->and($result['engineCapacityCc'])->toBe(1598)
+        ->and($result['horsepower'])->toBe(110)
+        ->and($result['transmission'])->toBe('manual');
+});
+
+test('maps diesel and hybrid, and leaves spec fields null when the page has none', function () {
+    $url = 'https://www.olx.ro/d/oferta/test-IDdiesel.html';
+    Http::fake([$url => Http::response('<html><body><p>Combustibil: Diesel</p></body></html>', 200)]);
+
+    $diesel = (new OlxDetailFetcher)->fetch($url);
+
+    expect($diesel['fuelType'])->toBe('diesel')
+        ->and($diesel['engineCapacityCc'])->toBeNull()
+        ->and($diesel['transmission'])->toBeNull();
+});

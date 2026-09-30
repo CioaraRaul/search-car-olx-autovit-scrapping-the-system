@@ -7,6 +7,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
+beforeEach(fn () => config(['car_knowledge.needs_fit.penalty' => 0]));
+
 function makeUnscoredListing(array $overrides = []): Listing
 {
     return Listing::create(array_merge([
