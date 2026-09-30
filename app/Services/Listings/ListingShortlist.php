@@ -50,7 +50,7 @@ class ListingShortlist
             fn (Listing $listing) => $listing->detail_checked_at !== null
                 && $this->meetsReliabilityThreshold($listing)
                 && $this->looksAreAcceptable($listing)
-                && (! $bodyTypeSet || $this->bodyTypeGuard->isAcceptable((string) $listing->title)),
+                && (! $bodyTypeSet || $this->bodyTypeGuard->isAcceptable((string) $listing->title, $listing->description)),
         )->values();
     }
 

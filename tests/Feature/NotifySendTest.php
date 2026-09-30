@@ -132,3 +132,17 @@ test('never emails a listing whose ad page has not been checked yet, and sends i
 
     expect($unchecked->fresh()->notified_at)->not->toBeNull();
 });
+
+test('a car whose title lacks a body word is emailed only if its description says sedan or berlina', function () {
+    SearchCriterion::create(['key' => 'body_type', 'value' => 'sedan,break']);
+    $confirmed = makeListing(['external_id' => 'focus-ok', 'title' => 'Ford Focus 1.6', 'description' => 'Vand Focus berlina, unic proprietar', 'year' => 2014, 'mileage_km' => 100000]);
+    $unconfirmed = makeListing(['external_id' => 'focus-no', 'title' => 'Ford Focus 1.6', 'description' => 'Masina buna', 'year' => 2015, 'mileage_km' => 120000]);
+
+    $this->artisan('notify:send')->assertExitCode(0);
+
+    Mail::assertSent(ListingsDigest::class, function (ListingsDigest $mail) use ($confirmed, $unconfirmed) {
+        $ids = $mail->listings->pluck('id');
+
+        return $ids->contains($confirmed->id) && ! $ids->contains($unconfirmed->id);
+    });
+});

@@ -46,7 +46,7 @@ class OlxDetailFetcher
     ];
 
     /**
-     * @return array{damaged: ?bool, fuelConsumptionL100km: ?float, sellerRegisteredYear: ?int, fuelType: ?string, engineCapacityCc: ?int, horsepower: ?int, transmission: ?string}
+     * @return array{damaged: ?bool, fuelConsumptionL100km: ?float, sellerRegisteredYear: ?int, description: ?string, fuelType: ?string, engineCapacityCc: ?int, horsepower: ?int, transmission: ?string}
      */
     public function fetch(string $url): array
     {
@@ -75,6 +75,7 @@ class OlxDetailFetcher
             'engineCapacityCc' => $this->parseNumber($specs['Capacitate motor'] ?? null),
             'horsepower' => $this->parseNumber($specs['Putere'] ?? null),
             'transmission' => $this->normalizeTransmission($specs['Cutie de viteze'] ?? null),
+            'description' => $description !== '' ? mb_substr($description, 0, 5000) : null,
         ];
     }
 

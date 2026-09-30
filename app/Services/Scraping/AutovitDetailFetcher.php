@@ -19,7 +19,7 @@ use RuntimeException;
 class AutovitDetailFetcher
 {
     /**
-     * @return array{damaged: ?bool, fuelConsumptionL100km: ?float, sellerRegisteredYear: ?int}
+     * @return array{damaged: ?bool, fuelConsumptionL100km: ?float, sellerRegisteredYear: ?int, description: ?string}
      */
     public function fetch(string $url): array
     {
@@ -42,7 +42,20 @@ class AutovitDetailFetcher
             'damaged' => $this->parseDamaged($details),
             'fuelConsumptionL100km' => $this->parseFuelConsumption($details),
             'sellerRegisteredYear' => $this->parseSellerRegisteredYear($advert['seller'] ?? []),
+            'description' => $this->cleanDescription($advert['description'] ?? null),
         ];
+    }
+
+    /** The seller's free-text description (HTML in the page) as plain text, capped at 5000 characters. */
+    private function cleanDescription(mixed $raw): ?string
+    {
+        if (! is_string($raw)) {
+            return null;
+        }
+
+        $text = trim(preg_replace('/\s+/u', ' ', strip_tags(html_entity_decode($raw))) ?? '');
+
+        return $text === '' ? null : mb_substr($text, 0, 5000);
     }
 
     /**

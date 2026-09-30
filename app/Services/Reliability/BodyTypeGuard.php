@@ -2,15 +2,24 @@
 
 namespace App\Services\Reliability;
 
+use Illuminate\Support\Str;
+
 /**
- * Accepts a listing only if its title names a model we know is a sedan or
- * estate AND a sensible buy for this buyer — a whitelist, not a blacklist.
+ * Decides whether a listing is really a sedan or estate (and not a premium-brand
+ * car with costly repairs), using the title AND the ad description.
  *
- * Site body-type filters just forward whatever category the seller ticked, so
- * a coupe/hatchback can pass a body_type=sedan,break criterion (a BMW Seria 2
- * did). A blacklist of "bad" models can never be complete, so anything not
- * explicitly listed in config('car_knowledge.body_type_guard') is rejected.
- * It is a criteria filter (like the price filter), not a reliability score.
+ * Site body-type filters just forward whatever category the seller ticked, so a
+ * coupe/hatchback can pass a body_type=sedan,break criterion (a BMW Seria 2
+ * did). Any make/model is allowed except:
+ *   1. premium brands;
+ *   2. titles with a non-sedan word (coupe, hatchback, SUV, ...);
+ *   3. models that are never a sedan/estate (hatchbacks, SUVs, MPVs, vans),
+ *      unless the title names an estate version ("Golf Variant");
+ *   4. cars where neither title nor description says sedan/berlina/estate/...
+ *      (models that are only ever sedan/estate, like the Dacia Logan, skip this).
+ *
+ * A criteria filter (like the price filter), not a reliability score. The word
+ * lists live in config('car_knowledge.body_type_guard').
  */
 class BodyTypeGuard
 {
@@ -18,21 +27,20 @@ class BodyTypeGuard
 
     public const REJECTED_BODY = 'rejected-body-keyword';
 
-    public const UNLISTED_MODEL = 'unlisted-model';
+    public const HATCHBACK_ONLY = 'hatchback-only-model';
 
     public const BODY_UNCONFIRMED = 'body-unconfirmed';
 
     /**
-     * @return string|null null when the listing is acceptable, otherwise a reason code
+     * The rejections that need only the title — safe to apply BEFORE spending a
+     * request on the ad page.
+     *
+     * @return string|null null when nothing in the title rules the car out
      */
-    public function rejectionReason(string $title): ?string
+    public function hardRejection(string $title): ?string
     {
-        $haystack = strtolower(trim($title));
+        $haystack = $this->normalize($title);
         $config = config('car_knowledge.body_type_guard');
-
-        if ($haystack === '') {
-            return self::UNLISTED_MODEL;
-        }
 
         if ($this->anyKeywordMatches($config['premium_brands'], $haystack)) {
             return self::PREMIUM_BRAND;
@@ -42,22 +50,50 @@ class BodyTypeGuard
             return self::REJECTED_BODY;
         }
 
-        if ($this->anyGroupMatches($config['always_sedan_or_estate'], $haystack)) {
+        if ($this->anyGroupMatches($config['hatchback_only_models'], $haystack)
+            && ! $this->anyKeywordMatches($config['estate_keywords'], $haystack)) {
+            return self::HATCHBACK_ONLY;
+        }
+
+        return null;
+    }
+
+    /**
+     * The full decision. $description null = the ad page has not been read, so
+     * only the title is available to confirm the body style.
+     *
+     * @return string|null null when the listing is acceptable, otherwise a reason code
+     */
+    public function rejectionReason(string $title, ?string $description = null): ?string
+    {
+        $reason = $this->hardRejection($title);
+
+        if ($reason !== null) {
+            return $reason;
+        }
+
+        $config = config('car_knowledge.body_type_guard');
+        $normalizedTitle = $this->normalize($title);
+
+        if ($this->anyGroupMatches($config['always_sedan_or_estate'], $normalizedTitle)) {
             return null;
         }
 
-        if ($this->anyGroupMatches($config['needs_body_keyword'], $haystack)) {
-            return $this->anyKeywordMatches($config['body_keywords'], $haystack)
-                ? null
-                : self::BODY_UNCONFIRMED;
-        }
+        $text = $normalizedTitle.' '.$this->normalize((string) $description);
+        $bodyWords = array_merge($config['sedan_keywords'], $config['estate_keywords']);
 
-        return self::UNLISTED_MODEL;
+        return $this->anyKeywordMatches($bodyWords, $text) ? null : self::BODY_UNCONFIRMED;
     }
 
-    public function isAcceptable(string $title): bool
+    public function isAcceptable(string $title, ?string $description = null): bool
     {
-        return $this->rejectionReason($title) === null;
+        return $this->rejectionReason($title, $description) === null;
+    }
+
+    /** Lower-case and strip accents, so "Citroën", "berlină" and "uși" match plain-ASCII keywords. */
+    private function normalize(string $text): string
+    {
+        return Str::ascii(mb_strtolower(trim($text)));
     }
 
     /**
@@ -92,9 +128,14 @@ class BodyTypeGuard
         return false;
     }
 
-    /** Whole-word match, so "mini" doesn't hit "minivan" and "3" doesn't hit "2013". */
+    /**
+     * Whole-word/phrase match: "mini" doesn't hit "minivan", "mazda 2" doesn't hit
+     * "mazda 2013" or "mazda 2.0", and spaces in a phrase match any run of whitespace.
+     */
     private function containsWord(string $haystack, string $keyword): bool
     {
-        return preg_match('/(?<![\p{L}\p{N}])'.preg_quote(strtolower($keyword), '/').'(?![\p{L}\p{N}])/u', $haystack) === 1;
+        $pattern = str_replace(' ', '\s+', preg_quote(Str::ascii(mb_strtolower($keyword)), '/'));
+
+        return preg_match('/(?<![\p{L}\p{N}])'.$pattern.'(?![\p{L}\p{N}])(?![.,]\d)/u', $haystack) === 1;
     }
 }

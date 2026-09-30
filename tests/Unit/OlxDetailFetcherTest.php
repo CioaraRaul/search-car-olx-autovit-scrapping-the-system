@@ -162,3 +162,10 @@ test('maps diesel and hybrid, and leaves spec fields null when the page has none
         ->and($diesel['engineCapacityCc'])->toBeNull()
         ->and($diesel['transmission'])->toBeNull();
 });
+
+test('returns the ad description text', function () {
+    $url = 'https://www.olx.ro/d/oferta/with-description.html';
+    fakeOlxAdPage($url, 'Vand Ford Focus berlina, unic proprietar.');
+
+    expect((new OlxDetailFetcher)->fetch($url)['description'])->toBe('Vand Ford Focus berlina, unic proprietar.');
+});

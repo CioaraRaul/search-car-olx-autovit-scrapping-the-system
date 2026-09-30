@@ -6,6 +6,21 @@ progress in a way that's readable without digging through `git log`.
 
 ## 2026-10-01
 
+### Changed (body-type check widened, 2026-10-01)
+- **The narrow model whitelist is gone.** It made almost every result a Dacia Logan. Any make/model is
+  now allowed, except: premium brands (BMW, Audi, Mercedes, ...), titles with a non-sedan word
+  (coupe, hatchback, SUV, ...), and models that are never a sedan or estate (Polo, Clio, Yaris, i20,
+  Sandero, Qashqai, ... ~150 hatchbacks/SUVs/MPVs/vans, unless the title names an estate version such
+  as "Golf Variant" or "Fabia Combi"). Models only ever sold as sedan/estate (Logan, Octavia, Passat,
+  Avensis, ...) need no body word.
+- **The body style is confirmed from the title OR the ad description.** A car whose title lacks
+  "sedan/berlina/combi/break/..." is kept when the ad description says so; if neither does, it is
+  dropped. Matching ignores case and accents ("berlină", "Citroën").
+- **The ad description is now stored** (Autovit's full `advert.description`, OLX's ad text, capped at
+  5,000 characters) — it used to be read and thrown away.
+- Numeric model names match as phrases ("mazda 2", "peugeot 108") so "Mazda 6 2.0" is not taken for a
+  Mazda 2 and "Peugeot 301 108 000 km" is not a Peugeot 108.
+
 ### Fixed (2026-10-01)
 - **The email (and the looks shortlist) only include cars whose own ad page was checked.** Each site
   allows 100 ad-page fetches a day, so on a big scan the rest are saved without the damage /
