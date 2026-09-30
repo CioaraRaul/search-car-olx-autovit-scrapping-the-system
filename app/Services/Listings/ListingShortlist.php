@@ -44,8 +44,11 @@ class ListingShortlist
                 && $l->price < (int) $priceMin,
         );
 
+        // A listing whose own ad page was never checked (the daily fetch cap ran out) has no
+        // damage/consumption/seller/fuel data, so it is held back until a later scrape checks it.
         return $listings->filter(
-            fn (Listing $listing) => $this->meetsReliabilityThreshold($listing)
+            fn (Listing $listing) => $listing->detail_checked_at !== null
+                && $this->meetsReliabilityThreshold($listing)
                 && $this->looksAreAcceptable($listing)
                 && (! $bodyTypeSet || $this->bodyTypeGuard->isAcceptable((string) $listing->title)),
         )->values();

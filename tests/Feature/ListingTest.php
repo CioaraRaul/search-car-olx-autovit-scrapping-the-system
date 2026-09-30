@@ -17,6 +17,7 @@ function makeListing(array $overrides = []): Listing
         'currency' => 'EUR',
         'url' => 'https://example.test/listing/abc123',
         'photos' => ['https://example.test/photo1.jpg'],
+        'detail_checked_at' => now(),
     ], $overrides));
 }
 

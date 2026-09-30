@@ -112,3 +112,23 @@ test('never emails a listing cheaper than the price_min criterion', function () 
         return $ids->contains($fine->id) && ! $ids->contains($cheap->id);
     });
 });
+
+test('never emails a listing whose ad page has not been checked yet, and sends it once it is checked', function () {
+    $unchecked = makeListing(['external_id' => 'unchecked-1', 'detail_checked_at' => null]);
+    $checked = makeListing(['external_id' => 'checked-1']);
+
+    $this->artisan('notify:send')->assertExitCode(0);
+
+    Mail::assertSent(ListingsDigest::class, function (ListingsDigest $mail) use ($unchecked, $checked) {
+        $ids = $mail->listings->pluck('id');
+
+        return $ids->contains($checked->id) && ! $ids->contains($unchecked->id);
+    });
+    expect($unchecked->fresh()->notified_at)->toBeNull();
+
+    // A later scrape checks it -> it joins the next digest.
+    $unchecked->update(['detail_checked_at' => now()]);
+    $this->artisan('notify:send')->assertExitCode(0);
+
+    expect($unchecked->fresh()->notified_at)->not->toBeNull();
+});
