@@ -24,10 +24,13 @@ return [
         'penalty' => 100,
     ],
 
-    // Buyer's rule: no engine over 2.0 L, and diesel is unsuited to short trips. There is NO
+    // Buyer's rule: engine between 1.2 and 2.0 L, and diesel is unsuited to short trips. There is NO
     // power limit by default (max_horsepower 0 = off) — engine quality is judged by the
     // reliability rules instead. All flags here are absolute exclusions.
     'needs_fit' => [
+        // 1.2 L minimum: real-world 1.2 engines report 1149-1199 cc, so 1140 lets them through
+        // while rejecting 0.9 / 1.0 engines.
+        'min_engine_cc' => (int) env('CAR_KNOWLEDGE_MIN_ENGINE_CC', 1140),
         'max_engine_cc' => (int) env('CAR_KNOWLEDGE_MAX_ENGINE_CC', 2000),
         'max_horsepower' => (int) env('CAR_KNOWLEDGE_MAX_HORSEPOWER', 0),
         'penalty' => (int) env('CAR_KNOWLEDGE_NEEDS_FIT_PENALTY', 100),

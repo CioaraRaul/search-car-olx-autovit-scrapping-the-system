@@ -11,7 +11,8 @@ use App\Services\Reliability\ReliabilityFlag;
  *
  *  - Diesel: DPF/EGR clog on short trips, and ~8,000 km/year never earns back
  *    the higher repair risk.
- *  - Engine bigger than max_engine_cc (2.0 L) or, only if configured, stronger than max_horsepower: pricier
+ *  - Engine smaller than min_engine_cc (1.2 L) or bigger than max_engine_cc (2.0 L), or, only if
+ *    configured, stronger than max_horsepower: too little engine for county roads, or pricier
  *    RCA, road tax and fuel.
  *
  * Uses the structured fields when known (Autovit always; OLX once its ad page
@@ -54,6 +55,14 @@ class NeedsFitEvaluator implements ReliabilityRuleEvaluator
         }
 
         $cc = $this->engineCapacityCc($listing, $title);
+
+        if ($cc !== null && $cc < $config['min_engine_cc']) {
+            $flags[] = new ReliabilityFlag(
+                'engine-too-small',
+                "Engine {$cc} cc is smaller than 1.2 L — too little engine for a comfortable county-road drive like the weekly Oradea–Tulca trip.",
+                $config['penalty'],
+            );
+        }
 
         if ($cc !== null && $cc > $config['max_engine_cc']) {
             $flags[] = new ReliabilityFlag(
@@ -101,8 +110,8 @@ class NeedsFitEvaluator implements ReliabilityRuleEvaluator
             return (int) $listing['engine_capacity_cc'];
         }
 
-        // "1.6", "2.0" or "1,4" in the title, not part of a longer number like "85.913".
-        if (preg_match('/(?<![\d.,])([1-6])[.,]([0-9])(?![\d])/', $title, $m) === 1) {
+        // "0.9", "1.6", "2.0" or "1,4" in the title, not part of a longer number like "85.913".
+        if (preg_match('/(?<![\d.,])([0-6])[.,]([0-9])(?![\d])/', $title, $m) === 1) {
             return ((int) $m[1]) * 1000 + ((int) $m[2]) * 100;
         }
 

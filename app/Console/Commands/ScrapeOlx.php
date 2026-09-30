@@ -44,7 +44,7 @@ class ScrapeOlx extends Command
         $rejectedByReliability = 0;
         $detailReused = 0;
         $detailResolvedByTitle = 0;
-        $detailSkippedByCap = 0;
+        $stoppedAtCap = false;
         $stoppedEarly = false;
 
         $detailFetchCountKey = 'olx:detail-fetch-count:'.now()->toDateString();
@@ -126,12 +126,13 @@ class ScrapeOlx extends Command
                     $attributes['detail_checked_at'] = now();
                     $detailResolvedByTitle++;
                 } elseif ((int) Cache::get($detailFetchCountKey, 0) >= $detailFetchDailyCap) {
-                    // Daily cap reached: leave detail_checked_at unset so a future day's
-                    // run still tries this listing instead of skipping it forever.
-                    $attributes['is_damaged'] = null;
-                    $attributes['fuel_consumption_l_100km'] = null;
-                    $attributes['seller_registered_year'] = null;
-                    $detailSkippedByCap++;
+                    // Daily cap reached: stop the whole run. A car whose own ad page can't be read
+                    // is never saved unchecked — it is found again by a later day's run, when the
+                    // cap has reset (already-checked cars reuse stored data and cost nothing).
+                    $stoppedAtCap = true;
+                    $this->warn("Daily detail-fetch cap ({$detailFetchDailyCap}) reached — stopping this run; the rest continues tomorrow.");
+
+                    break 2;
                 } else {
                     try {
                         $details = $detailFetcher->fetch($attributes['url']);
@@ -173,8 +174,7 @@ class ScrapeOlx extends Command
                 }
 
                 // Confirming the body style needs the ad description, so this can only run once
-                // the ad page has been read. A listing the daily cap left unchecked is saved,
-                // but the email holds it back until a later scrape has checked it.
+                // the ad page has been read (a car is never saved without that check — see the cap above).
                 if (isset($criteria['body_type'])
                     && ($attributes['detail_checked_at'] ?? null) !== null
                     && $bodyTypeGuard->rejectionReason($attributes['title'] ?? '', $attributes['description'] ?? null) !== null) {
@@ -222,7 +222,8 @@ class ScrapeOlx extends Command
             "OLX: {$created} new, {$updated} updated, {$filteredByPrice} filtered out by price, "
             ."{$filteredByBodyTypeMismatch} filtered out by body-type mismatch, "
             ."{$rejectedByReliability} rejected by reliability filter, {$detailReused} detail fetches "
-            ."reused, {$detailResolvedByTitle} resolved by title, {$detailSkippedByCap} skipped by daily cap"
+            ."reused, {$detailResolvedByTitle} resolved by title, detail fetches reused"
+            .($stoppedAtCap ? ', stopped at the daily detail-fetch cap.' : '')
             .($stoppedEarly ? ', stopped early after a possible block.' : '.')
         );
 
