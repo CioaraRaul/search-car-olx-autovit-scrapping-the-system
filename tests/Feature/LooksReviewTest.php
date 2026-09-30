@@ -22,6 +22,7 @@ function reviewListing(array $overrides = []): Listing
         'mileage_km' => fake()->unique()->numberBetween(50000, 200000),
         'url' => 'https://www.olx.ro/d/oferta/logan-IDabc.html',
         'reliability_score' => 100,
+        'detail_checked_at' => now(),
     ], $overrides));
 }
 

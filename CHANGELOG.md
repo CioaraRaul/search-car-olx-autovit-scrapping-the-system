@@ -4,6 +4,14 @@ Every implemented change gets an entry here, in plain language — what changed 
 separate from git commit messages: commits describe a diff, this describes the project's
 progress in a way that's readable without digging through `git log`.
 
+## 2026-10-01
+
+### Fixed (2026-10-01)
+- **The email (and the looks shortlist) only include cars whose own ad page was checked.** Each site
+  allows 100 ad-page fetches a day, so on a big scan the rest are saved without the damage /
+  fuel-consumption / seller-age / fuel data and could have been emailed unverified. They are now held
+  back (kept in the database, not deleted) and join a later digest once a scrape checks them.
+
 ## 2026-09-30
 
 ### Changed
