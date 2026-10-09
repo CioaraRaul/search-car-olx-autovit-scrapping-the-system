@@ -149,3 +149,16 @@ test('the description is null when the ad has none', function () {
 
     expect((new AutovitDetailFetcher)->fetch($url)['description'])->toBeNull();
 });
+
+test('reads the verified flag from advert.verifiedCar', function (mixed $raw, ?bool $expected) {
+    $advert = $raw === 'missing' ? [] : ['verifiedCar' => $raw];
+    Http::fake([
+        'https://www.autovit.ro/robots.txt' => Http::response("User-agent: *\nAllow: /", 200),
+        'https://www.autovit.ro/autoturisme/anunt/*' => Http::response(
+            '<html><script id="__NEXT_DATA__" type="application/json">'.json_encode(['props' => ['pageProps' => ['advert' => $advert + ['details' => []]]]]).'</script></html>',
+            200,
+        ),
+    ]);
+
+    expect((new AutovitDetailFetcher)->fetch('https://www.autovit.ro/autoturisme/anunt/x.html')['verified'])->toBe($expected);
+})->with([[true, true], [false, false], ['missing', null]]);

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Listing;
 use App\Models\SearchCriterion;
 use App\Services\Reliability\BodyTypeGuard;
+use App\Services\Reliability\ModelCheck;
 use App\Services\Reliability\ReliabilityScorer;
 use App\Services\Scraping\AutovitClient;
 use App\Services\Scraping\AutovitDetailFetcher;
@@ -26,6 +27,7 @@ class ScrapeAutovit extends Command
         AutovitDetailFetcher $detailFetcher,
         ReliabilityScorer $scorer,
         BodyTypeGuard $bodyTypeGuard,
+        ModelCheck $modelCheck,
     ): int {
         $criteria = SearchCriterion::query()->pluck('value', 'key')->all();
         $priceMax = isset($criteria['price_max']) ? (int) $criteria['price_max'] : null;
@@ -41,6 +43,7 @@ class ScrapeAutovit extends Command
         $updated = 0;
         $filteredByPrice = 0;
         $filteredByBodyTypeMismatch = 0;
+        $filteredByModel = 0;
         $rejectedByReliability = 0;
         $detailReused = 0;
         $stoppedAtCap = false;
@@ -64,6 +67,14 @@ class ScrapeAutovit extends Command
                 if (($priceMax !== null && $comparable && $attributes['price'] > $priceMax)
                     || ($priceMin !== null && $comparable && $attributes['price'] < $priceMin)) {
                     $filteredByPrice++;
+
+                    continue;
+                }
+
+                // Stage 1: is this specific make+model one we know to be a good car? An unknown model
+                // (or one marked "avoid") is dropped before anything else is spent on it.
+                if ($modelCheck->rejectionReason($attributes['title'] ?? '') !== null) {
+                    $filteredByModel++;
 
                     continue;
                 }
@@ -93,6 +104,7 @@ class ScrapeAutovit extends Command
                     $attributes['fuel_consumption_l_100km'] = $existing->fuel_consumption_l_100km;
                     $attributes['seller_registered_year'] = $existing->seller_registered_year;
                     $attributes['description'] = $existing->description;
+                    $attributes['autovit_verified'] = $existing->autovit_verified;
                     $attributes['detail_checked_at'] = $existing->detail_checked_at;
                     $detailReused++;
                 } elseif ((int) Cache::get($detailFetchCountKey, 0) >= $detailFetchDailyCap) {
@@ -110,6 +122,7 @@ class ScrapeAutovit extends Command
                         $attributes['fuel_consumption_l_100km'] = $details['fuelConsumptionL100km'];
                         $attributes['seller_registered_year'] = $details['sellerRegisteredYear'];
                         $attributes['description'] = $details['description'] ?? $attributes['description'];
+                        $attributes['autovit_verified'] = $details['verified'];
                         $attributes['detail_checked_at'] = now();
 
                         Cache::put(
@@ -192,6 +205,7 @@ class ScrapeAutovit extends Command
 
         $this->info(
             "Autovit: {$created} new, {$updated} updated, {$filteredByPrice} filtered out by price, "
+            ."{$filteredByModel} dropped by the model check (unknown or avoid), "
             ."{$filteredByBodyTypeMismatch} filtered out by body-type mismatch, "
             ."{$rejectedByReliability} rejected by reliability filter, {$detailReused} detail fetches "
             .'reused, detail fetches reused'

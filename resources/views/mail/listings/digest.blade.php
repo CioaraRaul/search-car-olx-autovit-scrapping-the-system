@@ -14,6 +14,15 @@
 - City: {{ $listing->city ?? '—' }}
 - Source: {{ ucfirst($listing->source->value) }}
 - Reliability score: {{ $listing->reliability_score ?? '—' }}/100
+@if ($listing->source->value === 'autovit' && $listing->autovit_verified === false)
+- ⚠ Not verified by Autovit
+@elseif ($listing->source->value === 'autovit' && $listing->autovit_verified === true)
+- ✔ Details verified by Autovit
+@endif
+@php($modelReputation = app(\App\Services\Reliability\ModelCheck::class)->find($listing->title))
+@if ($modelReputation !== null)
+- Model: {{ $modelReputation->label() }} — {{ $modelReputation->verdict }}. {{ $modelReputation->reason }}
+@endif
 @if ($listing->fuel_type || $listing->engine_capacity_cc || $listing->horsepower)
 - Engine: {{ collect([$listing->fuel_type, $listing->engine_capacity_cc ? $listing->engine_capacity_cc.' cc' : null, $listing->horsepower ? $listing->horsepower.' HP' : null])->filter()->implode(' · ') }}
 @endif

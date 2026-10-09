@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'city', 'url', 'photos', 'description', 'notified_at',
     'reliability_score', 'reliability_flags', 'reliability_scored_at',
     'is_damaged', 'fuel_consumption_l_100km', 'detail_checked_at', 'seller_registered_year',
-    'looks_score', 'looks_notes', 'looks_scored_at',
+    'looks_score', 'looks_notes', 'looks_scored_at', 'autovit_verified',
 ])]
 class Listing extends Model
 {
@@ -30,6 +30,7 @@ class Listing extends Model
             'reliability_scored_at' => 'datetime',
             'price_eur' => 'decimal:2',
             'is_damaged' => 'boolean',
+            'autovit_verified' => 'boolean',
             'fuel_consumption_l_100km' => 'decimal:1',
             'detail_checked_at' => 'datetime',
             'looks_scored_at' => 'datetime',

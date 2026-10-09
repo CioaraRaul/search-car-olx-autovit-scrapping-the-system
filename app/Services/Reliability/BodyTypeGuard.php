@@ -2,7 +2,7 @@
 
 namespace App\Services\Reliability;
 
-use Illuminate\Support\Str;
+use App\Support\TitleText;
 
 /**
  * Decides whether a listing is really a sedan or estate (and not a premium-brand
@@ -90,10 +90,9 @@ class BodyTypeGuard
         return $this->rejectionReason($title, $description) === null;
     }
 
-    /** Lower-case and strip accents, so "Citroën", "berlină" and "uși" match plain-ASCII keywords. */
     private function normalize(string $text): string
     {
-        return Str::ascii(mb_strtolower(trim($text)));
+        return TitleText::normalize($text);
     }
 
     /**
@@ -128,14 +127,8 @@ class BodyTypeGuard
         return false;
     }
 
-    /**
-     * Whole-word/phrase match: "mini" doesn't hit "minivan", "mazda 2" doesn't hit
-     * "mazda 2013" or "mazda 2.0", and spaces in a phrase match any run of whitespace.
-     */
     private function containsWord(string $haystack, string $keyword): bool
     {
-        $pattern = str_replace(' ', '\s+', preg_quote(Str::ascii(mb_strtolower($keyword)), '/'));
-
-        return preg_match('/(?<![\p{L}\p{N}])'.$pattern.'(?![\p{L}\p{N}])(?![.,]\d)/u', $haystack) === 1;
+        return TitleText::containsWord($haystack, $keyword);
     }
 }

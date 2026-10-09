@@ -13,6 +13,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     Cache::flush();
+    allowAnyModel();
 
     // Fixtures are diesel/2.0 L cars; the needs-fit rule has its own tests.
     config(['car_knowledge.needs_fit.penalty' => 0]);

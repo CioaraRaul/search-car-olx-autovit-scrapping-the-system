@@ -11,6 +11,8 @@ use App\Services\Reliability\Rules\LowMileageEvaluator;
 use App\Services\Reliability\Rules\NeedsFitEvaluator;
 use App\Services\Reliability\Rules\NewSellerAccountEvaluator;
 use App\Services\Reliability\Rules\ReliabilityRuleEvaluator;
+use App\Services\Reliability\Rules\ScamTextEvaluator;
+use App\Services\Reliability\Rules\UnverifiedAutovitEvaluator;
 
 class ReliabilityScorer
 {
@@ -27,6 +29,8 @@ class ReliabilityScorer
             new DamagedVehicleEvaluator,
             new HighFuelConsumptionEvaluator,
             new NewSellerAccountEvaluator,
+            new UnverifiedAutovitEvaluator,
+            new ScamTextEvaluator,
             new NeedsFitEvaluator,
         ];
     }

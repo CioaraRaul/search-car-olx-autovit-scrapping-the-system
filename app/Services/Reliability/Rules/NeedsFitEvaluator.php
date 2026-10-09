@@ -11,7 +11,7 @@ use App\Services\Reliability\ReliabilityFlag;
  *
  *  - Diesel: DPF/EGR clog on short trips, and ~8,000 km/year never earns back
  *    the higher repair risk.
- *  - Engine smaller than min_engine_cc (1.2 L) or bigger than max_engine_cc (2.0 L), or, only if
+ *  - Engine smaller than min_engine_cc (1.3 L) or bigger than max_engine_cc (2.0 L), or, only if
  *    configured, stronger than max_horsepower: too little engine for county roads, or pricier
  *    RCA, road tax and fuel.
  *
@@ -59,7 +59,7 @@ class NeedsFitEvaluator implements ReliabilityRuleEvaluator
         if ($cc !== null && $cc < $config['min_engine_cc']) {
             $flags[] = new ReliabilityFlag(
                 'engine-too-small',
-                "Engine {$cc} cc is smaller than 1.2 L — too little engine for a comfortable county-road drive like the weekly Oradea–Tulca trip.",
+                "Engine {$cc} cc is smaller than 1.3 L — too little engine for a comfortable county-road drive like the weekly Oradea–Tulca trip.",
                 $config['penalty'],
             );
         }

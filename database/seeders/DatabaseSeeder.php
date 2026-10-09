@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             ReliabilityRuleSeeder::class,
+            ModelReputationSeeder::class,
         ]);
     }
 }

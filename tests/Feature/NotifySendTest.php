@@ -11,6 +11,7 @@ uses(RefreshDatabase::class);
 beforeEach(function () {
     config(['notifications.recipient_email' => 'cioararaul08@gmail.com']);
     Mail::fake();
+    allowAnyModel();
 });
 
 test('sends a digest of unnotified listings and marks them notified, leaving already-notified ones alone', function () {
