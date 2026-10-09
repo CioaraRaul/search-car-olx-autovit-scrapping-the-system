@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Mail;
 
 uses(RefreshDatabase::class);
 
+beforeEach(fn () => allowAnyModel());
+
 function reviewListing(array $overrides = []): Listing
 {
     return Listing::create(array_merge([

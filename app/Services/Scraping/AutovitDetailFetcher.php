@@ -19,7 +19,7 @@ use RuntimeException;
 class AutovitDetailFetcher
 {
     /**
-     * @return array{damaged: ?bool, fuelConsumptionL100km: ?float, sellerRegisteredYear: ?int, description: ?string}
+     * @return array{damaged: ?bool, fuelConsumptionL100km: ?float, sellerRegisteredYear: ?int, description: ?string, verified: ?bool}
      */
     public function fetch(string $url): array
     {
@@ -43,6 +43,8 @@ class AutovitDetailFetcher
             'fuelConsumptionL100km' => $this->parseFuelConsumption($details),
             'sellerRegisteredYear' => $this->parseSellerRegisteredYear($advert['seller'] ?? []),
             'description' => $this->cleanDescription($advert['description'] ?? null),
+            // Autovit's "verified details" mark; absent from the page data = unknown, not "no".
+            'verified' => isset($advert['verifiedCar']) ? (bool) $advert['verifiedCar'] : null,
         ];
     }
 

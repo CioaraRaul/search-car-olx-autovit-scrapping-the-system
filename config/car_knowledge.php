@@ -24,13 +24,13 @@ return [
         'penalty' => 100,
     ],
 
-    // Buyer's rule: engine between 1.2 and 2.0 L, and diesel is unsuited to short trips. There is NO
+    // Buyer's rule: engine between 1.3 and 2.0 L, and diesel is unsuited to short trips. There is NO
     // power limit by default (max_horsepower 0 = off) — engine quality is judged by the
     // reliability rules instead. All flags here are absolute exclusions.
     'needs_fit' => [
-        // 1.2 L minimum: real-world 1.2 engines report 1149-1199 cc, so 1140 lets them through
-        // while rejecting 0.9 / 1.0 engines.
-        'min_engine_cc' => (int) env('CAR_KNOWLEDGE_MIN_ENGINE_CC', 1140),
+        // 1.3 L minimum: real-world 1.3 engines report 1248-1299 cc, so 1240 lets them through
+        // while rejecting 1.2 and smaller engines.
+        'min_engine_cc' => (int) env('CAR_KNOWLEDGE_MIN_ENGINE_CC', 1240),
         'max_engine_cc' => (int) env('CAR_KNOWLEDGE_MAX_ENGINE_CC', 2000),
         'max_horsepower' => (int) env('CAR_KNOWLEDGE_MAX_HORSEPOWER', 0),
         'penalty' => (int) env('CAR_KNOWLEDGE_NEEDS_FIT_PENALTY', 100),
@@ -76,6 +76,17 @@ return [
     // (unlike the two absolute-exclusion rules above) so it stacks with other
     // flags toward rejection rather than auto-rejecting a genuine first-time
     // seller on its own.
+    // Autovit marks some ads "verified details" (advert.verifiedCar). Not verified = a few points
+    // off (100 -> 90), shown with a warning triangle in the email.
+    'unverified_autovit' => [
+        'penalty' => (int) env('CAR_KNOWLEDGE_UNVERIFIED_AUTOVIT_PENALTY', 10),
+    ],
+
+    // Classic scam wording in the ad text (advance payment, unseen shipping): an absolute exclusion.
+    'scam_text' => [
+        'penalty' => (int) env('CAR_KNOWLEDGE_SCAM_TEXT_PENALTY', 100),
+    ],
+
     'new_seller_account' => [
         'penalty' => (int) env('CAR_KNOWLEDGE_NEW_SELLER_ACCOUNT_PENALTY', 10),
     ],

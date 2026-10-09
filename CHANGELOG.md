@@ -4,6 +4,28 @@ Every implemented change gets an entry here, in plain language — what changed 
 separate from git commit messages: commits describe a diff, this describes the project's
 progress in a way that's readable without digging through `git log`.
 
+## 2026-10-09
+
+### Changed
+- **New default limits:** engine minimum is now 1.3 L (`CAR_KNOWLEDGE_MIN_ENGINE_CC`, default 1240 cc so
+  real 1.3 engines at 1248-1299 cc pass; 1.2 L and smaller are rejected), maximum mileage 250,000 km and
+  maximum price 7,500 EUR (the last two are saved search criteria, set with `criteria:set`).
+
+### Added
+- **Model check, before anything else (stage 1).** A new editable `model_reputations` table (seeded by
+  `ModelReputationSeeder`) says for each sedan/estate model whether it is recommended, acceptable or
+  to avoid, with a reason. A car whose title names an unknown model, no model at all, or a model
+  marked "avoid" is dropped right after the price check — before the ad page is fetched, so it costs none
+  of the daily fetch budget. The e-mail shortlist applies the same check to cars already saved, and each
+  e-mailed car shows its model verdict.
+- **Scam-wording check (stage 2).** Ads whose title/description ask for an advance payment, payment via
+  Western Union/escrow, or offer to ship the car unseen through a courier are rejected
+  (`CAR_KNOWLEDGE_SCAM_TEXT_PENALTY`, default 100). A seller living abroad or a dealer offering financing is
+  not flagged.
+- **Autovit "verified details".** The ad page's `verifiedCar` flag is stored (`autovit_verified`). A
+  verified ad keeps 100 points; an unverified one loses 10 (90, still above the threshold on its own) and
+  the e-mail shows a ⚠ "Not verified by Autovit" line. OLX ads and ads not yet read are unaffected.
+
 ## 2026-10-01
 
 ### Changed (2026-10-01, later)

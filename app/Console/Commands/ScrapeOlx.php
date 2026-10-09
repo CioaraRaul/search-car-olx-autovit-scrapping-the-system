@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Listing;
 use App\Models\SearchCriterion;
 use App\Services\Reliability\BodyTypeGuard;
+use App\Services\Reliability\ModelCheck;
 use App\Services\Reliability\ReliabilityScorer;
 use App\Services\Scraping\OlxClient;
 use App\Services\Scraping\OlxDetailFetcher;
@@ -26,6 +27,7 @@ class ScrapeOlx extends Command
         OlxDetailFetcher $detailFetcher,
         ReliabilityScorer $scorer,
         BodyTypeGuard $bodyTypeGuard,
+        ModelCheck $modelCheck,
     ): int {
         $criteria = SearchCriterion::query()->pluck('value', 'key')->all();
         $priceMax = isset($criteria['price_max']) ? (int) $criteria['price_max'] : null;
@@ -41,6 +43,7 @@ class ScrapeOlx extends Command
         $updated = 0;
         $filteredByPrice = 0;
         $filteredByBodyTypeMismatch = 0;
+        $filteredByModel = 0;
         $rejectedByReliability = 0;
         $detailReused = 0;
         $detailResolvedByTitle = 0;
@@ -78,6 +81,14 @@ class ScrapeOlx extends Command
                 if (($priceMax !== null && $comparable && $attributes['price'] > $priceMax)
                     || ($priceMin !== null && $comparable && $attributes['price'] < $priceMin)) {
                     $filteredByPrice++;
+
+                    continue;
+                }
+
+                // Stage 1: is this specific make+model one we know to be a good car? An unknown model
+                // (or one marked "avoid") is dropped before anything else is spent on it.
+                if ($modelCheck->rejectionReason($attributes['title'] ?? '') !== null) {
+                    $filteredByModel++;
 
                     continue;
                 }
@@ -220,6 +231,7 @@ class ScrapeOlx extends Command
 
         $this->info(
             "OLX: {$created} new, {$updated} updated, {$filteredByPrice} filtered out by price, "
+            ."{$filteredByModel} dropped by the model check (unknown or avoid), "
             ."{$filteredByBodyTypeMismatch} filtered out by body-type mismatch, "
             ."{$rejectedByReliability} rejected by reliability filter, {$detailReused} detail fetches "
             ."reused, {$detailResolvedByTitle} resolved by title, detail fetches reused"

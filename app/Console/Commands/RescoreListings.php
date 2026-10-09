@@ -34,6 +34,8 @@ class RescoreListings extends Command
         $query->lazyById()->each(function (Listing $listing) use ($scorer, &$count) {
             $result = $scorer->score([
                 'id' => $listing->id,
+                'source' => $listing->source,
+                'autovit_verified' => $listing->autovit_verified,
                 'title' => $listing->title,
                 'description' => $listing->description,
                 'year' => $listing->year,

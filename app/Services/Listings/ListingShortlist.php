@@ -5,6 +5,7 @@ namespace App\Services\Listings;
 use App\Models\Listing;
 use App\Models\SearchCriterion;
 use App\Services\Reliability\BodyTypeGuard;
+use App\Services\Reliability\ModelCheck;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -15,7 +16,10 @@ use Illuminate\Database\Eloquent\Collection;
  */
 class ListingShortlist
 {
-    public function __construct(private readonly BodyTypeGuard $bodyTypeGuard) {}
+    public function __construct(
+        private readonly BodyTypeGuard $bodyTypeGuard,
+        private readonly ModelCheck $modelCheck,
+    ) {}
 
     /**
      * @param  Collection<int, Listing>  $listings
@@ -48,6 +52,7 @@ class ListingShortlist
         // damage/consumption/seller/fuel data, so it is held back until a later scrape checks it.
         return $listings->filter(
             fn (Listing $listing) => $listing->detail_checked_at !== null
+                && $this->modelCheck->isAcceptable($listing->title)
                 && $this->meetsReliabilityThreshold($listing)
                 && $this->looksAreAcceptable($listing)
                 && (! $bodyTypeSet || $this->bodyTypeGuard->isAcceptable((string) $listing->title, $listing->description)),
